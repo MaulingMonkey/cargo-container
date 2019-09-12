@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "packages/*",
+]
+
+default-members = [
+    "packages/*",
+]

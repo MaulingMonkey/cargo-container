@@ -1,0 +1,14 @@
+# https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[package]
+name = "cargo-subcommand"
+publish = false
+version = "0.0.0"
+authors = ["MaulingMonkey <git@maulingmonkey.com>"]
+edition = "2018"
+
+[dependencies]
+
+[package.metadata.container]
+configs = ["debug", "release"]
+platforms = ["cargo-subcommand"]

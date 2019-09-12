@@ -1,0 +1,43 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug x86_64-pc-windows-msvc", "type": "cppvsdbg", "request": "launch",
+            "preLaunchTask": "cargo build --target=x86_64-pc-windows-msvc",
+            "cwd": "${workspaceRoot}", "program": "", "args": ["container", "build", "*", "*"],
+            "windows": { "program": "${workspaceRoot}/target/x86_64-pc-windows-msvc/debug/cargo-container.exe" },
+            "internalConsoleOptions": "openOnSessionStart", "externalConsole": false,
+        },
+        {
+            "name": "Debug i686-pc-windows-msvc", "type": "cppvsdbg", "request": "launch",
+            "preLaunchTask": "cargo build --target=i686-pc-windows-msvc",
+            "cwd": "${workspaceRoot}", "program": "", "args": ["container", "build", "*", "*"],
+            "windows": { "program": "${workspaceRoot}/target/i686-pc-windows-msvc/debug/cargo-container.exe" },
+            "internalConsoleOptions": "openOnSessionStart", "externalConsole": false,
+        },
+        {
+            "name": "Release x86_64-pc-windows-msvc", "type": "cppvsdbg", "request": "launch",
+            "preLaunchTask": "cargo build --target=x86_64-pc-windows-msvc --release",
+            "cwd": "${workspaceRoot}", "program": "", "args": ["container", "build", "*", "*"],
+            "windows": { "program": "${workspaceRoot}/target/x86_64-pc-windows-msvc/release/cargo-container.exe" },
+            "internalConsoleOptions": "openOnSessionStart", "externalConsole": false,
+        },
+        {
+            "name": "Release i686-pc-windows-msvc", "type": "cppvsdbg", "request": "launch",
+            "preLaunchTask": "cargo build --target=i686-pc-windows-msvc --release",
+            "cwd": "${workspaceRoot}", "program": "", "args": ["container", "build", "*", "*"],
+            "windows": { "program": "${workspaceRoot}/target/i686-pc-windows-msvc/release/cargo-container.exe" },
+            "internalConsoleOptions": "openOnSessionStart", "externalConsole": false,
+        },
+    ],
+    //"compounds": [{ "name": "Compound", "configurations": [] }],
+    //"inputs": [
+    //    {
+    //        "id": "asdf",
+    //        "description": "long description and stuff",
+    //        "type": "pickString",
+    //        "options": ["a", "b", "c"],
+    //        "default": "a",
+    //    },
+    //]
+}
