@@ -1,6 +1,7 @@
 //! Utilities for managing VS Code integration.
 
-use serde::{Serialize, Serializer};
+use serde::{Serialize, Serializer, Deserialize, ser::SerializeMap};
+use serde_json::{json, Value};
 
 use std::fs;
 use std::io::{self};
@@ -131,6 +132,170 @@ impl ExtensionsJson<'_> {
 
 impl Default for ExtensionsJson<'_> {
     fn default() -> Self { Self::new() }
+}
+
+
+
+/// A `.vscode/tasks.json` or `.vscode/launch.json` input variable definition.
+/// 
+/// https://code.visualstudio.com/docs/editor/variables-reference
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(tag = "type")]
+pub enum InputVariable {
+    PromptString {
+        //type:         "promptString"
+        id:             String,
+        #[serde(skip_serializing_if = "Option::is_none")]   description:    Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]   default:        Option<String>,
+    },
+    PickString {
+        //type:         "pickString"
+        id:             String,
+        #[serde(skip_serializing_if = "Option::is_none")]   description:    Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]   default:        Option<String>,
+        #[serde(skip_serializing_if = "Vec::is_empty"  )]   options:        Vec<String>,
+    },
+    Command {
+        //type:         "command"
+        id:             String,
+        command:        String,
+        #[serde(skip_serializing_if = "Value::is_null" )]   args:           Value, // Some commands take strings, others take maps...
+    },
+
+    #[doc(hidden)] _NonExhaustive,
+}
+
+impl InputVariable {
+    /// The "id" field of the input variable.
+    pub fn id(&self) -> &str {
+        match self {
+            InputVariable::PromptString { id, .. } => id,
+            InputVariable::PickString   { id, .. } => id,
+            InputVariable::Command      { id, .. } => id,
+            InputVariable::_NonExhaustive => panic!("InputVariable::_NonExhaustive"),
+        }.as_str()
+    }
+
+    /// The "type" field of the input variable.
+    pub fn ty(&self) -> &str {
+        match self {
+            InputVariable::PromptString { .. } => "promptString",
+            InputVariable::PickString   { .. } => "pickString",
+            InputVariable::Command      { .. } => "command",
+            InputVariable::_NonExhaustive => panic!("InputVariable::_NonExhaustive"),
+        }
+    }
+}
+
+#[test]
+fn input_vars() {
+    let vars = [
+        InputVariable::PromptString {
+            id:             "example_prompt_string".to_owned(),
+            description:    Some("Example description?".to_owned()),
+            default:        Some("option_2".to_owned()),
+        },
+        InputVariable::PickString {
+            id:             "example_pick_string".to_owned(),
+            description:    Some("Example description?".to_owned()),
+            default:        Some("option_2".to_owned()),
+            options:        vec!["option_1".to_owned(), "option_2".to_owned(), "option_3".to_owned()],
+        },
+        InputVariable::Command {
+            id:             "example_command_1".to_owned(),
+            command:        "no_args_command".to_owned(),
+            args:           Value::Null,
+        },
+        InputVariable::Command {
+            id:             "example_command_2".to_owned(),
+            command:        "string_arg_command".to_owned(),
+            args:           Value::String("asdf".to_owned()),
+        },
+    ];
+
+    for (i, &id) in ["example_prompt_string", "example_pick_string", "example_command_1", "example_command_2"].iter().enumerate() {
+        assert_eq!(vars[i].id(), id);
+    }
+    for (i, &ty) in ["promptString", "pickString", "command", "command"].iter().enumerate() {
+        assert_eq!(vars[i].ty(), ty);
+    }
+
+    let actual = serde_json::to_string_pretty(&vars).unwrap().replace("  ", "    ").replace("\n", "\n    ");
+    let expected = r#"[
+        {
+            "type": "promptString",
+            "id": "example_prompt_string",
+            "description": "Example description?",
+            "default": "option_2"
+        },
+        {
+            "type": "pickString",
+            "id": "example_pick_string",
+            "description": "Example description?",
+            "default": "option_2",
+            "options": [
+                "option_1",
+                "option_2",
+                "option_3"
+            ]
+        },
+        {
+            "type": "command",
+            "id": "example_command_1",
+            "command": "no_args_command"
+        },
+        {
+            "type": "command",
+            "id": "example_command_2",
+            "command": "string_arg_command",
+            "args": "asdf"
+        }
+    ]"#;
+    let mut actual = actual.lines();
+    let mut expected = expected.lines();
+
+    let mut line = 0;
+    loop {
+        line += 1;
+        let actual = actual.next();
+        let expected = expected.next();
+        match (actual, expected) {
+            (None,          None            ) => break,
+            (Some(actual),  Some(expected)  ) => assert_eq!(actual, expected, "line {}", line),
+            (Some(_actual), None            ) => panic!("Actual input was longer than expected"),
+            (None,          Some(_expected) ) => panic!("Actual input was shorter than expected"),
+        }
+    }
+}
+
+/// Represents an opaque `.vscode/tasks.json` task.
+pub trait Task {
+    fn to_json(&self) -> Value;
+}
+
+/// Represents a `.vscode/tasks.json` file in "version": "2.0.0" format.
+pub struct TasksJson200<'a> {
+    //version:  "2.0.0"
+    pub inputs: Vec<InputVariable>,
+    tasks:      &'a [&'a dyn Task],
+}
+
+impl Serialize for TasksJson200<'_> {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        let mut map = s.serialize_map(None)?;
+        map.serialize_entry("version",          "2.0.0")?;
+        map.serialize_entry("inputs",           &self.inputs)?;
+        map.serialize_entry("presentation",     &json!({ "clear": true }))?;
+        map.serialize_entry("problemMatcher",   &json!(["$rustc"]))?;
+        map.serialize_entry("type",             "shell")?;
+        map.serialize_entry("options", &json!({
+            "cwd": "${workspaceFolder}",
+            "env": { "RUST_BACKTRACE": "1" },
+        }))?;
+        map.serialize_entry("tasks", &self.tasks.iter().map(|task| task.to_json()).collect::<Vec<Value>>())?;
+        map.end()
+    }
 }
 
 
