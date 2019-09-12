@@ -10,6 +10,29 @@ use std::path::{Path};
 use std::process::Command;
 use std::result::Result;
 
+
+
+#[cfg(test)]
+macro_rules! assert_eq_lines {
+    ($actual:expr, $expected:expr) => {{
+        let mut actual = $actual.lines();
+        let mut expected = $expected.lines();
+
+        let mut line = 0;
+        loop {
+            line += 1;
+            let actual = actual.next();
+            let expected = expected.next();
+            match (actual, expected) {
+                (None,          None            ) => break,
+                (Some(actual),  Some(expected)  ) => assert_eq!(actual, expected, "line {}", line),
+                (Some(_actual), None            ) => panic!("Actual input was longer than expected"),
+                (None,          Some(_expected) ) => panic!("Actual input was shorter than expected"),
+            }
+        }
+    }}
+}
+
 fn code_cmd() -> Command {
     if cfg!(windows) {
         // VS Code might be a .cmd script, rust's spawn behavior ignores PATHEXT and so doesn't work for us.
@@ -188,9 +211,43 @@ impl InputVariable {
     }
 }
 
+/// A `.vscode/tasks.json` task to open a url/website such as external documentation, repositories, issue links, etc.
+pub struct OpenUrlTask {
+    pub group:  TaskGroup,
+    pub label:  String,
+    pub url:    String,
+
+    #[doc(hidden)] _non_exhaustive: (),
+}
+
+impl OpenUrlTask {
+    pub fn new(label: impl Into<String>, url: impl Into<String>) -> Self {
+        Self {
+            group:              TaskGroup::None,
+            label:              label.into(),
+            url:                url.into(),
+            _non_exhaustive:    ()
+        }
+    }
+}
+
+impl Task for OpenUrlTask {
+    fn to_json(&self) -> Value {
+        json!({
+            "group":    self.group.to_json(),
+            "label":    self.label.clone(),
+            "linux":    { "command": format!("xdg-open {}",     self.url) },
+            "osx":      { "command": format!("open {}",         self.url) },
+            "type":     "shell",
+            "windows":  { "command": format!("start \"\" {}",   self.url) },
+        })
+    }
+}
+
 #[test]
-fn input_vars() {
-    let vars = [
+fn tasks_json() {
+    let mut file = TasksJson200::new();
+    file.inputs = vec![
         InputVariable::PromptString {
             id:             "example_prompt_string".to_owned(),
             description:    Some("Example description?".to_owned()),
@@ -213,60 +270,93 @@ fn input_vars() {
             args:           Value::String("asdf".to_owned()),
         },
     ];
+    file.tasks = vec![
+        Box::new(OpenUrlTask { group: TaskGroup::BUILD_DEFAULT, ..OpenUrlTask::new("Open github", "https://github.com/MaulingMonkey/cargo-container") }),
+        Box::new(OpenUrlTask::new("Open docs.rs", "https://docs.rs/cargo-container")),
+    ];
 
-    for (i, &id) in ["example_prompt_string", "example_pick_string", "example_command_1", "example_command_2"].iter().enumerate() {
-        assert_eq!(vars[i].id(), id);
-    }
-    for (i, &ty) in ["promptString", "pickString", "command", "command"].iter().enumerate() {
-        assert_eq!(vars[i].ty(), ty);
-    }
 
-    let actual = serde_json::to_string_pretty(&vars).unwrap().replace("  ", "    ").replace("\n", "\n    ");
-    let expected = r#"[
-        {
-            "type": "promptString",
-            "id": "example_prompt_string",
-            "description": "Example description?",
-            "default": "option_2"
+    let actual = serde_json::to_string_pretty(&file).unwrap().replace("  ", "    ").replace("\n", "\n    ");
+    let expected = r#"{
+        "version": "2.0.0",
+        "inputs": [
+            {
+                "type": "promptString",
+                "id": "example_prompt_string",
+                "description": "Example description?",
+                "default": "option_2"
+            },
+            {
+                "type": "pickString",
+                "id": "example_pick_string",
+                "description": "Example description?",
+                "default": "option_2",
+                "options": [
+                    "option_1",
+                    "option_2",
+                    "option_3"
+                ]
+            },
+            {
+                "type": "command",
+                "id": "example_command_1",
+                "command": "no_args_command"
+            },
+            {
+                "type": "command",
+                "id": "example_command_2",
+                "command": "string_arg_command",
+                "args": "asdf"
+            }
+        ],
+        "presentation": {
+            "clear": true
         },
-        {
-            "type": "pickString",
-            "id": "example_pick_string",
-            "description": "Example description?",
-            "default": "option_2",
-            "options": [
-                "option_1",
-                "option_2",
-                "option_3"
-            ]
+        "problemMatcher": [
+            "$rustc"
+        ],
+        "type": "shell",
+        "options": {
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_BACKTRACE": "1"
+            }
         },
-        {
-            "type": "command",
-            "id": "example_command_1",
-            "command": "no_args_command"
-        },
-        {
-            "type": "command",
-            "id": "example_command_2",
-            "command": "string_arg_command",
-            "args": "asdf"
-        }
-    ]"#;
-    let mut actual = actual.lines();
-    let mut expected = expected.lines();
-
-    let mut line = 0;
-    loop {
-        line += 1;
-        let actual = actual.next();
-        let expected = expected.next();
-        match (actual, expected) {
-            (None,          None            ) => break,
-            (Some(actual),  Some(expected)  ) => assert_eq!(actual, expected, "line {}", line),
-            (Some(_actual), None            ) => panic!("Actual input was longer than expected"),
-            (None,          Some(_expected) ) => panic!("Actual input was shorter than expected"),
-        }
-    }
+        "tasks": [
+            {
+                "group": {
+                    "isDefault": true,
+                    "kind": "build"
+                },
+                "label": "Open github",
+                "linux": {
+                    "command": "xdg-open https://github.com/MaulingMonkey/cargo-container"
+                },
+                "osx": {
+                    "command": "open https://github.com/MaulingMonkey/cargo-container"
+                },
+                "type": "shell",
+                "windows": {
+                    "command": "start \"\" https://github.com/MaulingMonkey/cargo-container"
+                }
+            },
+            {
+                "group": "none",
+                "label": "Open docs.rs",
+                "linux": {
+                    "command": "xdg-open https://docs.rs/cargo-container"
+                },
+                "osx": {
+                    "command": "open https://docs.rs/cargo-container"
+                },
+                "type": "shell",
+                "windows": {
+                    "command": "start \"\" https://docs.rs/cargo-container"
+                }
+            }
+        ]
+    }"#;
+    assert_eq_lines!(actual, expected);
 }
 
 /// Represents an opaque `.vscode/tasks.json` task.
@@ -274,18 +364,59 @@ pub trait Task {
     fn to_json(&self) -> Value;
 }
 
-/// Represents a `.vscode/tasks.json` file in "version": "2.0.0" format.
-pub struct TasksJson200<'a> {
-    //version:  "2.0.0"
-    pub inputs: Vec<InputVariable>,
-    tasks:      &'a [&'a dyn Task],
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum TaskGroup {
+    None,
+    Build   { default: bool },
+    Test    { default: bool },
+
+    #[doc(hidden)]
+    _NonExhaustive,
 }
 
-impl Serialize for TasksJson200<'_> {
+impl TaskGroup {
+    pub const NONE          : TaskGroup = TaskGroup::None;
+    pub const BUILD         : TaskGroup = TaskGroup::Build { default: false };
+    pub const BUILD_DEFAULT : TaskGroup = TaskGroup::Build { default: true  };
+    pub const TEST          : TaskGroup = TaskGroup::Test  { default: false };
+    pub const TEST_DEFAULT  : TaskGroup = TaskGroup::Test  { default: true  };
+
+    pub fn to_json(&self) -> Value {
+        match *self {
+            TaskGroup::None                 => json!("none"),
+            TaskGroup::Build { default }    => if default { json!({ "kind": "build", "isDefault": true }) } else { json!("build") },
+            TaskGroup::Test  { default }    => if default { json!({ "kind": "test",  "isDefault": true }) } else { json!("test")  },
+            TaskGroup::_NonExhaustive       => panic!("TaskGroup::_NonExhaustive"),
+        }
+    }
+}
+
+/// Represents a `.vscode/tasks.json` file in "version": "2.0.0" format.
+pub struct TasksJson200 {
+    //version:  "2.0.0"
+    pub inputs: Vec<InputVariable>,
+    pub tasks:  Vec<Box<dyn Task>>,
+
+    #[doc(hidden)] _non_exhaustive: (),
+}
+
+impl TasksJson200 {
+    pub fn new() -> Self {
+        Self {
+            inputs: Vec::new(),
+            tasks:  Vec::new(),
+            _non_exhaustive: ()
+        }
+    }
+}
+
+impl Serialize for TasksJson200 {
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         let mut map = s.serialize_map(None)?;
         map.serialize_entry("version",          "2.0.0")?;
-        map.serialize_entry("inputs",           &self.inputs)?;
+        if !self.inputs.is_empty() {
+            map.serialize_entry("inputs",           &self.inputs)?;
+        }
         map.serialize_entry("presentation",     &json!({ "clear": true }))?;
         map.serialize_entry("problemMatcher",   &json!(["$rustc"]))?;
         map.serialize_entry("type",             "shell")?;
@@ -293,7 +424,9 @@ impl Serialize for TasksJson200<'_> {
             "cwd": "${workspaceFolder}",
             "env": { "RUST_BACKTRACE": "1" },
         }))?;
-        map.serialize_entry("tasks", &self.tasks.iter().map(|task| task.to_json()).collect::<Vec<Value>>())?;
+        if !self.tasks.is_empty() {
+            map.serialize_entry("tasks", &self.tasks.iter().map(|task| task.to_json()).collect::<Vec<Value>>())?;
+        }
         map.end()
     }
 }
