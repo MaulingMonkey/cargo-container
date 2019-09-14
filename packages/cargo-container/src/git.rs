@@ -136,19 +136,27 @@ impl ConfigParserState {
                     "proxyAuthMethod"       => remote.proxy_auth_methods    = Some(value.to_string()),
                     "fetch"                 => remote.fetch                 = Some(value.to_string()),
                     "push"                  => remote.push                  = Some(value.to_string()),
-                    "mirror"                => remote.mirror                = Some(value == "true"),
-                    "skipDefaultUpdate"     => remote.skip_default_update   = Some(value == "true"),
-                    "skipFetchAll"          => remote.skip_fetch_all        = Some(value == "true"),
+                    "mirror"                => remote.mirror                = Self::parse_bool(value),
+                    "skipDefaultUpdate"     => remote.skip_default_update   = Self::parse_bool(value),
+                    "skipFetchAll"          => remote.skip_fetch_all        = Self::parse_bool(value),
                     "receivepack"           => remote.receivepack           = Some(value.to_string()),
                     "uploadpack"            => remote.uploadpack            = Some(value.to_string()),
                     "tagOpt"                => remote.tag_opt               = Some(value.to_string()),
                     "vcs"                   => remote.vcs                   = Some(value.to_string()),
-                    "prune"                 => remote.prune                 = Some(value == "true"),
-                    "pruneTags"             => remote.prune_tags            = Some(value == "true"),
+                    "prune"                 => remote.prune                 = Self::parse_bool(value),
+                    "pruneTags"             => remote.prune_tags            = Self::parse_bool(value),
                     _ => {}, // not yet supported
                 }
             },
             _ => {},
+        }
+    }
+
+    fn parse_bool(value: &str) -> Option<bool> {
+        match value {
+            "true" => Some(true),
+            "false" => Some(false),
+            _ => None,
         }
     }
 
