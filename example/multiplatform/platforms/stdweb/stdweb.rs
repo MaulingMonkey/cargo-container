@@ -1,126 +1,20 @@
 use platform_common::*;
 
-use mmrbi::{*, fatal, warning};
+use mmrbi::*;
 use mmrbi::env::*;
 use mmrbi::fs::write_if_modified_with as wimw;
 
 use std::ffi::OsString;
 use std::io::Write;
-use std::process::{Command, exit};
 
 
 
-trait PackageExt { fn generated_name(&self) -> String; }
-impl PackageExt for Package { fn generated_name(&self) -> String { format!("{}-stdweb", self.original_name()) } }
-struct State {
-    pub command:    String,
-    pub packages:   Vec<Package>,
-    pub configs:    Vec<Config>,
-}
+fn main() { platform_common::exec(Tool, "stdweb") }
 
-fn main() {
-    State::get().exec();
-}
-
-impl State {
-    pub fn get() -> Self {
-        let command     = req_var_str("CARGO_CONTAINER_COMMAND");
-        let configs     = Config::list();
-        let packages    = Package::list();
-        Self { command, packages, configs }
-    }
-
-    pub fn exec(&mut self) {
-        match self.command.as_str() {
-            "build"     => self.build(),
-            "run"       => self.run(),
-            "test"      => self.test(),
-            "generate"  => self.generate(),
-            _other      => exit(1),
-        }
-    }
-
-    fn build(&self) {
-        for config in self.configs.iter() {
-            for package in self.packages.iter() {
-                let mut cmd = Command::new("cargo");
-                cmd.current_dir(package.generated_path());
-                cmd.args(&["web", "build"]);
-                match config.name() {
-                    "debug"     => {},
-                    "release"   => { cmd.arg("--release"); },
-                    other       => fatal!("unexpected config: {:?}", other),
-                }
-                cmd.status0().or_die();
-
-                wimw(format!("target/wasm32-unknown-unknown/{config}/{package}.html", config=config.name(), package=package.generated_name()), |o|{
-                    writeln!(o, "<!DOCTYPE html>")?;
-                    writeln!(o, "<html lang=\"en\"><head>")?;
-                    writeln!(o, "    <meta charset=\"UTF-8\">")?;
-                    writeln!(o, "    <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">")?;
-                    writeln!(o, "    <title>{}</title>", package.original_name())?;
-                    writeln!(o, "</head><body>")?;
-                    writeln!(o, "    <script src=\"../stdweb-hacks.js\"></script>")?;
-                    writeln!(o, "    <script src=\"{}.js\"></script>", package.generated_name())?;
-                    writeln!(o, "</body></html>")?;
-                    Ok(())
-                }).or_die();
-            }
-        }
-        wimw("target/wasm32-unknown-unknown/stdweb-hacks.js", |o| write!(o, "{}", include_str!("stdweb-hacks.js"))).or_die();
-    }
-
-    fn run(&self) {
-        // TODO: config selection?
-        // TODO: package(s) selection?
-        fatal!("run not yet implemented");
-    }
-
-    fn test(&self) {
-        if rustc::version().or_die().is_after(1, 43, 0) { // last known good rustc version
-            warning!("skipping tests - `cargo web test` is broken on rustc 1.44+ (see https://github.com/koute/cargo-web/issues/243 for details)");
-            return;
-        }
-
-        let path = {
-            let mut o = OsString::new();
-            if cfg!(windows) {
-                if let Some(pf86) = opt_var_os("ProgramFiles(x86)") {
-                    o.push(pf86);
-                    o.push(r"\Google\Chrome\Application\;");
-                } else if let Some(pf) = opt_var_os("ProgramFiles") {
-                    o.push(pf);
-                    o.push(r"\Google\Chrome\Application\;");
-                } else if let Some(pf64) = opt_var_os("ProgramW6432") {
-                    o.push(pf64);
-                    o.push(r"\Google\Chrome\Application\;");
-                } else {
-                    o.push(r"C:\Program Files (x86)\Google\Chrome\Application\;");
-                    o.push(r"C:\Program Files\Google\Chrome\Application\;");
-                }
-            }
-            o.push(req_var_os("PATH"));
-            o
-        };
-
-        for config in self.configs.iter() {
-            for package in self.packages.iter() {
-                let mut cmd = Command::new("cargo");
-                cmd.current_dir(package.generated_path());
-                cmd.args(&["web", "test"]);
-                cmd.env("PATH", &path);
-                match config.name() {
-                    "debug"     => {},
-                    "release"   => { cmd.arg("--release"); },
-                    other       => fatal!("unexpected config: {:?}", other),
-                }
-                cmd.status0().or_die();
-            }
-        }
-    }
-
-    fn generate(&self) {
-        for package in self.packages.iter() {
+struct Tool;
+impl platform_common::Tool for Tool {
+    fn generate(&self, state: &State) {
+        for package in state.packages.iter() {
             let out_dir = package.generated_path();
             std::fs::create_dir_all(&out_dir).unwrap_or_else(|err| fatal!("unable to create `{}`: {}", out_dir.display(), err));
 
@@ -152,4 +46,78 @@ impl State {
             }).or_die();
         }
     }
+
+    fn build(&self, state: &State) {
+        for config in state.configs.iter() {
+            for package in state.packages.iter() {
+                let mut cmd = Command::new("cargo");
+                cmd.current_dir(package.generated_path());
+                cmd.args(&["web", "build"]);
+                match config.name() {
+                    "debug"     => {},
+                    "release"   => { cmd.arg("--release"); },
+                    other       => fatal!("unexpected config: {:?}", other),
+                }
+                cmd.status0().or_die();
+
+                wimw(format!("target/wasm32-unknown-unknown/{config}/{package}.html", config=config.name(), package=package.generated_name()), |o|{
+                    writeln!(o, "<!DOCTYPE html>")?;
+                    writeln!(o, "<html lang=\"en\"><head>")?;
+                    writeln!(o, "    <meta charset=\"UTF-8\">")?;
+                    writeln!(o, "    <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">")?;
+                    writeln!(o, "    <title>{}</title>", package.original_name())?;
+                    writeln!(o, "</head><body>")?;
+                    writeln!(o, "    <script src=\"../stdweb-hacks.js\"></script>")?;
+                    writeln!(o, "    <script src=\"{}.js\"></script>", package.generated_name())?;
+                    writeln!(o, "</body></html>")?;
+                    Ok(())
+                }).or_die();
+            }
+        }
+        wimw("target/wasm32-unknown-unknown/stdweb-hacks.js", |o| write!(o, "{}", include_str!("stdweb-hacks.js"))).or_die();
+    }
+
+    fn test(&self, state: &State) {
+        if rustc::version().or_die().is_after(1, 43, 0) { // last known good rustc version
+            warning!("skipping tests - `cargo web test` is broken on rustc 1.44+ (see https://github.com/koute/cargo-web/issues/243 for details)");
+            return;
+        }
+
+        let path = {
+            let mut o = OsString::new();
+            if cfg!(windows) {
+                if let Some(pf86) = opt_var_os("ProgramFiles(x86)") {
+                    o.push(pf86);
+                    o.push(r"\Google\Chrome\Application\;");
+                } else if let Some(pf) = opt_var_os("ProgramFiles") {
+                    o.push(pf);
+                    o.push(r"\Google\Chrome\Application\;");
+                } else if let Some(pf64) = opt_var_os("ProgramW6432") {
+                    o.push(pf64);
+                    o.push(r"\Google\Chrome\Application\;");
+                } else {
+                    o.push(r"C:\Program Files (x86)\Google\Chrome\Application\;");
+                    o.push(r"C:\Program Files\Google\Chrome\Application\;");
+                }
+            }
+            o.push(req_var_os("PATH"));
+            o
+        };
+
+        for config in state.configs.iter() {
+            for package in state.packages.iter() {
+                let mut cmd = Command::new("cargo");
+                cmd.current_dir(package.generated_path());
+                cmd.args(&["web", "test"]);
+                cmd.env("PATH", &path);
+                match config.name() {
+                    "debug"     => {},
+                    "release"   => { cmd.arg("--release"); },
+                    other       => fatal!("unexpected config: {:?}", other),
+                }
+                cmd.status0().or_die();
+            }
+        }
+    }
+
 }

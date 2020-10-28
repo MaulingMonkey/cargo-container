@@ -1,11 +1,9 @@
 use platform_common::*;
 
-use mmrbi::{fatal, warning, CommandExt, ResultExt};
-use mmrbi::env::*;
+use mmrbi::*;
 use mmrbi::fs::write_if_modified_with as wimw;
 
 use std::io::Write;
-use std::process::{Command, exit};
 
 
 
@@ -38,91 +36,23 @@ const PREFERRED_TARGET : &'static [&'static str] = &[
     "i586-pc-windows-gnu",
 ];
 
-
-
-
-trait PackageExt { fn generated_name(&self) -> String; }
-impl PackageExt for Package { fn generated_name(&self) -> String { format!("{}-windows", self.original_name()) } }
-
-struct State {
-    pub command:    String,
-    pub packages:   Vec<Package>,
-    pub configs:    Vec<Config>,
-    pub target:     &'static str,
-}
-
-
 fn main() {
-    State::get().exec();
+    let target = {
+        let installed = mmrbi::Rustup::default().or_die().toolchains().active().expect("no toolchain active").targets().installed();
+        PREFERRED_TARGET.iter().copied().filter(|t| installed.contains(*t)).next().unwrap_or_else(||{
+            fatal!("Unable to find {{x86_64,i686,i586}}-pc-windows-{{msvc,gnu}}");
+        })
+    };
+    platform_common::exec(Tool { target }, "windows")
 }
 
-impl State {
-    pub fn get() -> Self {
-        let command     = req_var_str("CARGO_CONTAINER_COMMAND");
-        let configs     = Config::list();
-        let packages    = Package::list();
-        let target = {
-            let installed = mmrbi::Rustup::default().or_die().toolchains().active().expect("no toolchain active").targets().installed();
-            PREFERRED_TARGET.iter().copied().filter(|t| installed.contains(*t)).next().unwrap_or_else(||{
-                fatal!("Unable to find {{x86_64,i686,i586}}-pc-windows-{{msvc,gnu}}");
-            })
-        };
-        Self { command, packages, configs, target }
-    }
+struct Tool {
+    target: &'static str,
+}
 
-    pub fn exec(&mut self) {
-        match self.command.as_str() {
-            "build"     => self.build(),
-            "run"       => self.run(),
-            "test"      => self.test(),
-            "generate"  => self.generate(),
-            _other      => exit(1),
-        }
-    }
-
-    fn build(&self) {
-        for config in self.configs.iter() {
-            let mut cmd = Command::new("cargo");
-            cmd.args(&["build"]);
-            cmd.arg("--target").arg(self.target);
-            match config.name() {
-                "debug"     => {},
-                "release"   => { cmd.arg("--release"); },
-                other       => fatal!("unexpected config: {:?}", other),
-            }
-            for package in self.packages.iter() { cmd.arg("-p"); cmd.arg(&package.generated_name()); }
-            cmd.status0().or_die()
-        }
-    }
-
-    fn run(&self) {
-        // TODO: config selection?
-        // TODO: package(s) selection?
-        fatal!("run not yet implemented");
-    }
-
-    fn test(&self) {
-        if !cfg!(windows) {
-            warning!("skipping tests - `cargo test --target *-pc-windows-*` requires windows");
-            return;
-        }
-
-        for config in self.configs.iter() {
-            let mut cmd = Command::new("cargo");
-            cmd.args(&["test"]);
-            cmd.arg("--target").arg(self.target);
-            match config.name() {
-                "debug"     => {},
-                "release"   => { cmd.arg("--release"); },
-                other       => fatal!("unexpected config: {:?}", other),
-            }
-            for package in self.packages.iter() { cmd.arg("-p"); cmd.arg(&package.generated_name()); }
-            cmd.status0().or_die()
-        }
-    }
-
-    fn generate(&self) {
-        for package in self.packages.iter() {
+impl platform_common::Tool for Tool {
+    fn generate(&self, state: &State) {
+        for package in state.packages.iter() {
             let out_dir = package.generated_path();
             std::fs::create_dir_all(&out_dir).unwrap_or_else(|err| fatal!("unable to create `{}`: {}", out_dir.display(), err));
 
@@ -166,6 +96,41 @@ impl State {
                 writeln!(o, "path            = {:?}", "main.rs")?;
                 Ok(())
             }).or_die();
+        }
+    }
+
+    fn build(&self, state: &State) {
+        for config in state.configs.iter() {
+            let mut cmd = Command::new("cargo");
+            cmd.args(&["build"]);
+            cmd.arg("--target").arg(self.target);
+            match config.name() {
+                "debug"     => {},
+                "release"   => { cmd.arg("--release"); },
+                other       => fatal!("unexpected config: {:?}", other),
+            }
+            for package in state.packages.iter() { cmd.arg("-p"); cmd.arg(&package.generated_name()); }
+            cmd.status0().or_die()
+        }
+    }
+
+    fn test(&self, state: &State) {
+        if !cfg!(windows) {
+            warning!("skipping tests - `cargo test --target *-pc-windows-*` requires windows");
+            return;
+        }
+
+        for config in state.configs.iter() {
+            let mut cmd = Command::new("cargo");
+            cmd.args(&["test"]);
+            cmd.arg("--target").arg(self.target);
+            match config.name() {
+                "debug"     => {},
+                "release"   => { cmd.arg("--release"); },
+                other       => fatal!("unexpected config: {:?}", other),
+            }
+            for package in state.packages.iter() { cmd.arg("-p"); cmd.arg(&package.generated_name()); }
+            cmd.status0().or_die()
         }
     }
 }
