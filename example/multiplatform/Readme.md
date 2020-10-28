@@ -31,6 +31,8 @@ target\x86_64-pc-windows-msvc\debug\alpha.exe
 | `apps/*/`         | Example crates to wrap
 | `platforms/*/`    | Example generators of platform specific boilerplate
 | `Container.toml`  | "Workspace" defining what to build
+| `Cargo.toml` (generated)  | Root workspace generated from `Container.toml`
+| `platforms/Cargo.toml`    | The "extra" workspace here ensures we can rerun the generators if they were buggy and broke the root workspace via bad/conflicting generated packages
 
 
 
