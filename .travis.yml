@@ -11,7 +11,8 @@ matrix:
     - rust: nightly
 script:
   - cargo build --release
-  - export PATH=$(pwd)/target/release:$PATH
+  - |
+    export PATH=$(pwd)/target/release:$PATH
     cd example/multiplatform
     cargo container build
     cargo container test
