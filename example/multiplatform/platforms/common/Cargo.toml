@@ -10,4 +10,4 @@ edition         = "2018"
 path            = "common.rs"
 
 [dependencies]
-mmrbi           = "0.0.7"
+mmrbi           = "0.0.8"

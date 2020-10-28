@@ -90,6 +90,6 @@ impl Package {
 pub mod exit {
     pub fn errors()                     -> ! { std::process::exit(0xCCEEEE) } // E = E = Error
     pub fn warnings()                   -> ! { std::process::exit(0xCC3333) } // 3 = W = Warning
-    pub fn command_not_implemented()    -> ! { std::process::exit(0xCC0921) } // C21 = CNI = Command Not Implemented
+    pub fn command_not_implemented()    -> ! { std::process::exit(0xCC0C21) } // C21 = CNI = Command Not Implemented
     pub fn platform_not_implemented()   -> ! { std::process::exit(0xCC0921) } // 921 = PNI = Platform Not Implemented
 }
