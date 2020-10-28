@@ -1,0 +1,151 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        // msjsdiag.debugger-for-chrome
+        // "runtimeArgs": See https://peter.sh/experiments/chromium-command-line-switches/
+        {
+            "name":                     "alpha • debug • chrome • stdweb",
+            "type":                     "chrome",
+            "request":                  "launch",
+            "url":                      "${workspaceFolder}/example/multiplatform/target/wasm32-unknown-unknown/debug/alpha-stdweb.html",
+            "runtimeArgs":              ["--allow-file-access-from-files", "--auto-open-devtools-for-tabs"],
+            "internalConsoleOptions":   "openOnSessionStart",
+            "preLaunchTask":            "build example multiplatform",
+        },
+        {
+            "name":                     "alpha • debug • chrome • web-sys",
+            "type":                     "chrome",
+            "request":                  "launch",
+            "url":                      "${workspaceFolder}/example/multiplatform/target/wasm32-unknown-unknown/debug/alpha-web-sys/index.html",
+            "runtimeArgs":              ["--allow-file-access-from-files", "--auto-open-devtools-for-tabs"],
+            "internalConsoleOptions":   "openOnSessionStart",
+            "preLaunchTask":            "build example multiplatform",
+        },
+        {
+            "name":                     "alpha • release • chrome • stdweb",
+            "type":                     "chrome",
+            "request":                  "launch",
+            "url":                      "${workspaceFolder}/example/multiplatform/target/wasm32-unknown-unknown/release/alpha-stdweb.html",
+            "runtimeArgs":              ["--allow-file-access-from-files", "--auto-open-devtools-for-tabs"],
+            "internalConsoleOptions":   "openOnSessionStart",
+            "preLaunchTask":            "build example multiplatform",
+        },
+        {
+            "name":                     "alpha • release • chrome • web-sys",
+            "type":                     "chrome",
+            "request":                  "launch",
+            "url":                      "${workspaceFolder}/example/multiplatform/target/wasm32-unknown-unknown/release/alpha-web-sys/index.html",
+            "runtimeArgs":              ["--allow-file-access-from-files", "--auto-open-devtools-for-tabs"],
+            "internalConsoleOptions":   "openOnSessionStart",
+            "preLaunchTask":            "build example multiplatform",
+        },
+        {
+            "name":                     "beta • debug • chrome • stdweb",
+            "type":                     "chrome",
+            "request":                  "launch",
+            "url":                      "${workspaceFolder}/example/multiplatform/target/wasm32-unknown-unknown/debug/beta-stdweb.html",
+            "runtimeArgs":              ["--allow-file-access-from-files", "--auto-open-devtools-for-tabs"],
+            "internalConsoleOptions":   "openOnSessionStart",
+            "preLaunchTask":            "build example multiplatform",
+        },
+        {
+            "name":                     "beta • debug • chrome • web-sys",
+            "type":                     "chrome",
+            "request":                  "launch",
+            "url":                      "${workspaceFolder}/example/multiplatform/target/wasm32-unknown-unknown/debug/beta-web-sys/index.html",
+            "runtimeArgs":              ["--allow-file-access-from-files", "--auto-open-devtools-for-tabs"],
+            "internalConsoleOptions":   "openOnSessionStart",
+            "preLaunchTask":            "build example multiplatform",
+        },
+        {
+            "name":                     "beta • release • chrome • stdweb",
+            "type":                     "chrome",
+            "request":                  "launch",
+            "url":                      "${workspaceFolder}/example/multiplatform/target/wasm32-unknown-unknown/release/beta-stdweb.html",
+            "runtimeArgs":              ["--allow-file-access-from-files", "--auto-open-devtools-for-tabs"],
+            "internalConsoleOptions":   "openOnSessionStart",
+            "preLaunchTask":            "build example multiplatform",
+        },
+        {
+            "name":                     "beta • release • chrome • web-sys",
+            "type":                     "chrome",
+            "request":                  "launch",
+            "url":                      "${workspaceFolder}/example/multiplatform/target/wasm32-unknown-unknown/release/beta-web-sys/index.html",
+            "runtimeArgs":              ["--allow-file-access-from-files", "--auto-open-devtools-for-tabs"],
+            "internalConsoleOptions":   "openOnSessionStart",
+            "preLaunchTask":            "build example multiplatform",
+        },
+        {
+            "name":                     "delta • debug • chrome • stdweb",
+            "type":                     "chrome",
+            "request":                  "launch",
+            "url":                      "${workspaceFolder}/example/multiplatform/target/wasm32-unknown-unknown/debug/delta-stdweb.html",
+            "runtimeArgs":              ["--allow-file-access-from-files", "--auto-open-devtools-for-tabs"],
+            "internalConsoleOptions":   "openOnSessionStart",
+            "preLaunchTask":            "build example multiplatform",
+        },
+        {
+            "name":                     "delta • debug • chrome • web-sys",
+            "type":                     "chrome",
+            "request":                  "launch",
+            "url":                      "${workspaceFolder}/example/multiplatform/target/wasm32-unknown-unknown/debug/delta-web-sys/index.html",
+            "runtimeArgs":              ["--allow-file-access-from-files", "--auto-open-devtools-for-tabs"],
+            "internalConsoleOptions":   "openOnSessionStart",
+            "preLaunchTask":            "build example multiplatform",
+        },
+        {
+            "name":                     "delta • release • chrome • stdweb",
+            "type":                     "chrome",
+            "request":                  "launch",
+            "url":                      "${workspaceFolder}/example/multiplatform/target/wasm32-unknown-unknown/release/delta-stdweb.html",
+            "runtimeArgs":              ["--allow-file-access-from-files", "--auto-open-devtools-for-tabs"],
+            "internalConsoleOptions":   "openOnSessionStart",
+            "preLaunchTask":            "build example multiplatform",
+        },
+        {
+            "name":                     "delta • release • chrome • web-sys",
+            "type":                     "chrome",
+            "request":                  "launch",
+            "url":                      "${workspaceFolder}/example/multiplatform/target/wasm32-unknown-unknown/release/delta-web-sys/index.html",
+            "runtimeArgs":              ["--allow-file-access-from-files", "--auto-open-devtools-for-tabs"],
+            "internalConsoleOptions":   "openOnSessionStart",
+            "preLaunchTask":            "build example multiplatform",
+        },
+        // Add support for hbenl.vscode-firefox-debug ?  While wasm32-unknown-unknown currently doesn't output
+        // sourcemaps, if/when it does, FireFox has support for them, which would get us better debugging.
+
+
+
+        // cargo-container
+        {
+            "name":                     "cargo-container • debug",
+            "type":                     "cppdbg",
+            "request":                  "launch",
+            "internalConsoleOptions":   "openOnSessionStart",
+            "preLaunchTask":            "cargo build --package cargo-container --bin cargo-container",
+            "program":                  "${workspaceFolder}/target/debug/cargo-container",
+            "cwd":                      "${workspaceFolder}",
+            "environment":              [ { "name": "RUST_BACKTRACE", "value": "1" } ],
+            "windows": {
+                "type":                     "cppvsdbg",
+                "program":                  "${workspaceFolder}/target/debug/cargo-container.exe",
+                "enableDebugHeap":          true,
+            }
+        },
+        {
+            "name":                     "cargo-container • release",
+            "type":                     "cppdbg",
+            "request":                  "launch",
+            "internalConsoleOptions":   "openOnSessionStart",
+            "preLaunchTask":            "cargo build --package cargo-container --bin cargo-container --release",
+            "program":                  "${workspaceFolder}/target/release/cargo-container",
+            "cwd":                      "${workspaceFolder}",
+            "environment":              [ { "name": "RUST_BACKTRACE", "value": "1" } ],
+            "windows": {
+                "type":                     "cppvsdbg",
+                "program":                  "${workspaceFolder}/target/release/cargo-container.exe",
+                "enableDebugHeap":          false,
+            }
+        },
+    ]
+}

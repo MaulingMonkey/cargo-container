@@ -1,0 +1,18 @@
+{
+    "files.exclude": {
+        "**/.git/":                true,
+        ".container/crates/zzz/":  true,
+
+        "target/*": true,
+        "example/multiplatform/platforms/target": true,
+
+        "example/multiplatform/target/**/examples": true, // no "examples" yet
+        "example/multiplatform/target/{.cargo-web,.rustc_info.json,CACHEDIR.TAG}":                                true,
+        "example/multiplatform/target/*/{wbg-tmp,CACHEDIR.TAG}":                                                  true,
+        "example/multiplatform/target/{debug,release}/{.fingerprint,build,deps,incremental,.cargo-lock,*.d}":     true,
+        "example/multiplatform/target/*/{debug,release}/{.fingerprint,build,deps,incremental,.cargo-lock,*.d}":   true,
+        "example/multiplatform/target/wasm32-unknown-unknown/{debug,release}/*/{.gitignore,package.json}":        true,
+        //"target/{debug,release}/*/*":                                                       true,
+        //"target/*/{debug,release}/*/*":                                                     true,
+    }
+}

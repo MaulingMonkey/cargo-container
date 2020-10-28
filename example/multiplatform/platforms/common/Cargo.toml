@@ -1,0 +1,13 @@
+# https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[package]
+name            = "platform-common"
+version         = "0.0.0"
+publish         = false
+edition         = "2018"
+
+[lib]
+path            = "common.rs"
+
+[dependencies]
+mmrbi           = { git = "https://github.com/MaulingMonkey/mmrbi" }

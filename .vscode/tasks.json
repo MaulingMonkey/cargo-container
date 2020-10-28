@@ -1,0 +1,151 @@
+{
+    "version": "2.0.0",
+    "problemMatcher": "$rustc",
+    "options": { "env": { "PATH": "${workspaceFolder}/target/release:${env:PATH}" } },
+    "windows": { "options": { "env": { "PATH": "${workspaceFolder}\\target\\release;${env:PATH}" } } },
+    "tasks": [
+        // entry points
+        {
+            "label":            "default-build",
+            "dependsOrder":     "sequence",
+            "dependsOn":        [ "build cargo-container", "build example platforms", "build example multiplatform", "test example multiplatform", "doc" ],
+            "group":            { "kind": "build", "isDefault": true }
+        },
+
+
+
+        // update
+        {
+            "label":            "update",
+            "command":          "cargo update --manifest-path Cargo.toml && cargo update --manifest-path example/multiplatform/platforms/Cargo.toml && cargo update --manifest-path example/multiplatform/Cargo.toml",
+            "type":             "shell",
+            "presentation":     { "clear": true, "group": "update", "reveal": "always" },
+        },
+
+
+
+        // clean
+        {
+            "label":            "clean",
+            "command":          "cargo clean --manifest-path Cargo.toml && cargo clean --manifest-path example/multiplatform/platforms/Cargo.toml && cargo clean --manifest-path example/multiplatform/Cargo.toml",
+            "type":             "shell",
+            "dependsOn":        ["clean bin", "clean root target"],
+            "presentation":     { "clear": true, "group": "clean", "reveal": "always" },
+        },
+        {
+            "label":            "clean bin",
+            "type":             "shell",
+            "command":          "rm bin/* || true",
+            "windows":          { "command": "rmdir /s /q bin || ver>NUL" },
+            "presentation":     { "clear": true, "group": "clean", "reveal": "always" },
+        },
+        {
+            "label":            "clean root target",
+            "type":             "shell",
+            "command":          "rm target/* || true",
+            "windows":          { "command": "rmdir /s /q target || ver>NUL" },
+            "presentation":     { "clear": true, "group": "clean", "reveal": "always" },
+        },
+
+
+
+        // build cargo-container
+        {
+            "label":            "build cargo-container",
+            "command":          "cargo build --release",
+            "type":             "shell",
+            "presentation":     { "clear": true, "group": "build cargo-container", "reveal": "always" },
+            "problemMatcher":   { "base": "$rustc", "owner": "build cargo-container", "source": "build cargo-container" },
+        },
+
+
+
+        // build example platforms
+        {
+            "label":            "build example platforms",
+            "command":          "cargo build --release",
+            "type":             "shell",
+            "options":          { "cwd": "${workspaceFolder}/example/multiplatform/platforms" },
+            "presentation":     { "clear": true, "group": "build example platforms", "reveal": "always" },
+            "problemMatcher":   { "base": "$rustc", "owner": "build example platforms", "source": "build example platforms", "fileLocation": ["relative", "${workspaceFolder}/example/multiplatform/platforms"] },
+        },
+
+
+
+        // build example multiplatform
+        {
+            "label":            "build example multiplatform",
+            "command":          "cargo container build",
+            "type":             "shell",
+            "options":          { "cwd": "${workspaceFolder}/example/multiplatform" },
+            "presentation":     { "clear": true, "group": "build example multiplatform", "reveal": "always" },
+            "problemMatcher":   { "base": "$rustc", "owner": "build example multiplatform", "source": "build example multiplatform", "fileLocation": ["relative", "${workspaceFolder}/example/multiplatform"] },
+        },
+
+
+
+        // test example multiplatform
+        {
+            "label":            "test example multiplatform",
+            "command":          "cargo container test",
+            "type":             "shell",
+            "options":          { "cwd": "${workspaceFolder}/example/multiplatform" },
+            "presentation":     { "clear": true, "group": "test example multiplatform", "reveal": "always" },
+            "problemMatcher":   { "base": "$rustc", "owner": "test example multiplatform", "source": "test example multiplatform", "fileLocation": ["relative", "${workspaceFolder}/example/multiplatform"] },
+        },
+
+
+
+        // doc
+        {
+            "label":            "doc",
+            "command":          "cargo +nightly doc --no-deps --package cargo-container",
+            "type":             "shell",
+            "presentation":     { "clear": true, "panel": "shared", "reveal": "always" },
+            "problemMatcher":   { "base": "$rustc", "owner": "cargo doc", "source": "cargo doc" },
+        },
+
+
+
+        // cargo-container
+        {
+            "label":            "cargo build --package cargo-container --bin cargo-container",
+            "command":          "cargo build --package cargo-container --bin cargo-container",
+            "type":             "shell",
+            "problemMatcher":   "$rustc",
+            "presentation":     { "clear": true, "panel": "shared", "reveal": "always" },
+        },
+        {
+            "label":            "cargo build --package cargo-container --bin cargo-container --release",
+            "command":          "cargo build --package cargo-container --bin cargo-container --release",
+            "type":             "shell",
+            "problemMatcher":   "$rustc",
+            "presentation":     { "clear": true, "panel": "shared", "reveal": "always" },
+        },
+        {
+            "label":            "build & open local documentation (cargo-container)",
+            "windows":          { "command": "start \"\"    \"${workspaceFolder}\\cargo-container\\target\\doc\\cargo_container\\index.html\"" },
+            "linux":            { "command": "xdg-open      \"${workspaceFolder}\\cargo-container\\target\\doc\\cargo_container\\index.html\"" },
+            "osx":              { "command": "open          \"${workspaceFolder}\\cargo-container\\target\\doc\\cargo_container\\index.html\"" },
+            "type":             "shell",
+            "presentation":     { "clear": true, "panel": "shared", "reveal": "silent" },
+            "dependsOn":        [ "doc" ],
+        },
+        {
+            "label":            "open repository (cargo-container)",
+            "windows":          { "command": "start \"\"    \"https://github.com/MaulingMonkey/cargo-container\"" },
+            "linux":            { "command": "xdg-open      \"https://github.com/MaulingMonkey/cargo-container\"" },
+            "osx":              { "command": "open          \"https://github.com/MaulingMonkey/cargo-container\"" },
+            "type":             "shell",
+            "presentation":     { "clear": true, "panel": "shared", "reveal": "silent" },
+        },
+        {
+            "label":            "open documentation (cargo-container)",
+            "windows":          { "command": "start \"\"    \"https://docs.rs/cargo-container\"" },
+            "linux":            { "command": "xdg-open      \"https://docs.rs/cargo-container\"" },
+            "osx":              { "command": "open          \"https://docs.rs/cargo-container\"" },
+            "type":             "shell",
+            "presentation":     { "clear": true, "panel": "shared", "reveal": "silent" },
+        },
+    ]
+}

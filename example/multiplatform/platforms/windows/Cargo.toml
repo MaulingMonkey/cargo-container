@@ -1,0 +1,14 @@
+# https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[package]
+name            = "platform-windows"
+version         = "0.0.0"
+publish         = false
+edition         = "2018"
+
+[dependencies]
+platform-common = { path = "../common" }
+
+[[bin]]
+name            = "platform-windows"
+path            = "windows.rs"

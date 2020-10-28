@@ -1,0 +1,14 @@
+# https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[package]
+name            = "platform-web-sys"
+version         = "0.0.0"
+publish         = false
+edition         = "2018"
+
+[dependencies]
+platform-common = { path = "../common" }
+
+[[bin]]
+name            = "platform-web-sys"
+path            = "web-sys.rs"

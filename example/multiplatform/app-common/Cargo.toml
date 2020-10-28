@@ -1,0 +1,44 @@
+# https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[package]
+name            = "app-common"
+version         = "0.0.0"
+publish         = false
+edition         = "2018"
+
+[features]
+default             = []
+platform-console    = []
+platform-windows    = ["winapi"]
+platform-stdweb     = ["stdweb"]
+platform-web-sys    = ["wasm-bindgen", "web-sys", "js-sys"]
+
+[dependencies]
+
+[target.'cfg(windows)'.dependencies.winapi]
+version         = "0.3"
+features        = ["winuser"]
+optional        = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies.stdweb]
+version         = "0.4"
+optional        = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies.wasm-bindgen]
+version         = "0.2"
+optional        = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies.web-sys]
+version         = "0.3"
+optional        = true
+features        = ["Window"]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies.js-sys]
+version         = "0.3"
+optional        = true
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies.wasm-bindgen-test]
+version         = "0.2"
+
+[lib]
+path            = "app-common.rs"

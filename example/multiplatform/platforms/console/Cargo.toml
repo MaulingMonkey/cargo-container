@@ -1,0 +1,14 @@
+# https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[package]
+name            = "platform-console"
+version         = "0.0.0"
+publish         = false
+edition         = "2018"
+
+[dependencies]
+platform-common = { path = "../common" }
+
+[[bin]]
+name            = "platform-console"
+path            = "console.rs"

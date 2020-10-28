@@ -1,0 +1,28 @@
+# https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[workspace]
+members = ["."]
+
+[package]
+name            = "cargo-container"
+version         = "0.0.0-git"
+authors         = ["MaulingMonkey <git@maulingmonkey.com>"]
+edition         = "2018"
+repository      = "https://github.com/MaulingMonkey/cargo-container"
+documentation   = "https://docs.rs/cargo-container"
+license         = "Apache-2.0 OR MIT"
+readme          = "Readme.md"
+description     = "package rlibs in several containing frontends"
+keywords        = ["cargo", "package"]
+categories      = ["development-tools::cargo-plugins"]
+
+[[bin]]
+name            = "cargo-container"
+path            = "src/_main.rs"
+
+[dependencies]
+serde                   = { version = "1", features = ["derive"] }
+serde_json              = "1"
+toml                    = "0.5"
+cargo-local-install     = "0.1.7"
+mmrbi                   = "0.0.5"

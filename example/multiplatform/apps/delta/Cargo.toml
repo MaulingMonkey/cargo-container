@@ -1,0 +1,13 @@
+# https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[package]
+name            = "delta"
+version         = "0.0.0"
+publish         = false
+edition         = "2018"
+
+[dependencies]
+app-common      = { path = "../../app-common" }
+
+[lib]
+path            = "delta.rs"
