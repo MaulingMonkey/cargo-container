@@ -1,6 +1,6 @@
 use platform_common::*;
 
-use mmrbi::{fatal, CommandExt, ResultExt};
+use mmrbi::{fatal, warning, CommandExt, ResultExt};
 use mmrbi::env::*;
 use mmrbi::fs::write_if_modified_with as wimw;
 
