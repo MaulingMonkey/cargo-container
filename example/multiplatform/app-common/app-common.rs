@@ -10,7 +10,8 @@ pub struct ConsoleDialogProvider;
 #[cfg(feature = "platform-console")]
 impl DialogProvider for ConsoleDialogProvider {
     fn show_dialog(&self, text: &str) {
-        println!("{}", text);
+        println!("{: ^24}", text);
+        println!("{: ^1$}", "(press enter to dismiss)", text.len());
         std::io::stdin().read_line(&mut String::new()).unwrap();
     }
 }
