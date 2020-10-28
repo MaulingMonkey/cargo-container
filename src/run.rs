@@ -154,20 +154,22 @@ fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, cmd: &str, ok_none
 
     let mut builds = ok_none;
     for build in meta.builds.iter() {
-        let crates = build.crates.iter().map(|c| c.as_str()).filter(|c| args.crates.is_empty() || args.crates.contains(*c)).collect::<Vec<_>>().join(",");
+        let crates = build.crates.iter().map(|c| c.as_str()).filter(|c| args.crates.is_empty() || args.crates.contains(*c)).collect::<Vec<_>>();
         if crates.is_empty() { continue }
+        let crates_s = crates.join(",");
         for tool in build.tools.iter() {
             if !args.tools.is_empty() && !args.tools.contains(tool.as_str()) { continue }
             for config in args.configs.iter() {
+                let start = std::time::Instant::now();
                 eprintln!();
-                status!(verbing, "{} | {} | {} crates", tool, config, build.crates.len());
+                status!(verbing, "{} | {} | {} crates", tool, config, crates.len());
                 let mut cmd = Command::new(tool.as_str());
                 cmd.env("PATH",                         &path);
                 cmd.env("CARGO_CONTAINER_COMMAND",      "build");
                 cmd.env("CARGO_CONTAINER_CRATES_DIR",   format!(".container/crates/{}", tool));
                 cmd.env("CARGO_CONTAINER_ARCHES",       &arches);
                 cmd.env("CARGO_CONTAINER_CONFIGS",      config);
-                cmd.env("CARGO_CONTAINER_PACKAGES",     &crates);
+                cmd.env("CARGO_CONTAINER_PACKAGES",     &crates_s);
                 let status = cmd.status().unwrap_or_else(|err| fatal!("`{}` build failed: {}", tool, err));
 
                 match status.code() {
@@ -181,6 +183,8 @@ fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, cmd: &str, ok_none
                     Some(n)                                         => fatal!("`{}` build failed (exit code {})", tool, n),
                     None                                            => fatal!("`{}` build failed (signal)", tool),
                 }
+                let stop = std::time::Instant::now();
+                status!("Finished", "{} | {} | {} crates in {:.2}s", tool, config, crates.len(), (stop-start).as_secs_f32());
             }
         }
     }

@@ -67,7 +67,7 @@ impl platform_common::Tool for Tool {
                     "release"   => { cmd.arg("--profiling"); }, // release + debuginfo
                     other       => fatal!("unexpected config: {:?}", other),
                 }
-                cmd.status0().or_die();
+                cmd.io0(filter_stdout, filter_stderr).or_die();
 
                 wimw(format!("target/wasm32-unknown-unknown/{config}/{package}/index.html", config=config.name(), package=package.generated_name()), |o|{
                     writeln!(o, "<!DOCTYPE html>")?;
@@ -118,8 +118,30 @@ impl platform_common::Tool for Tool {
                     "release"   => { cmd.arg("--release"); },
                     other       => fatal!("unexpected config: {:?}", other),
                 }
-                cmd.status0().or_die();
+                cmd.io0(filter_stdout, filter_stderr).or_die();
             }
         }
     }
+}
+
+fn filter_stderr(line: &str) {
+    if line.starts_with("[INFO]: ") { return } // so much spam, none of which is useful:
+    // [INFO]: Checking for the Wasm target...
+    // [INFO]: Compiling to Wasm...
+    // [INFO]: Installing wasm-bindgen...
+    // [INFO]: Optimizing wasm binaries with `wasm-opt`...
+    // [INFO]: Optional fields missing from Cargo.toml: 'repository', 'license'. These are not necessary, but recommended
+    // [INFO]: :-) Done in 0.66s
+    // [INFO]: :-) Your wasm pkg is ready to publish at C:\local\cargo-container-g\example\multiplatform\.container\crates\platform-web-sys\alpha\../../../../target/wasm32-unknown-unknown/debug/alpha-web-sys.
+
+    if line.starts_with(":-) [WARN]: origin crate has no README") { return } // yes, I know, that's bloody intentional
+
+    let trim = line.trim_start();
+    if      trim.starts_with("Finished ")   {} // too much spam
+    else if trim.starts_with("Compiling ")  { status!("Compiling", "{}", &trim["Compiling ".len()..]); }
+    else                                    { eprintln!("{}", line); }
+}
+
+fn filter_stdout(line: &str) {
+    println!("{}", line);
 }

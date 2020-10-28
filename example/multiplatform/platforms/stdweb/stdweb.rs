@@ -58,7 +58,7 @@ impl platform_common::Tool for Tool {
                     "release"   => { cmd.arg("--release"); },
                     other       => fatal!("unexpected config: {:?}", other),
                 }
-                cmd.status0().or_die();
+                cmd.io0(filter_stdout, filter_stderr).or_die();
 
                 wimw(format!("target/wasm32-unknown-unknown/{config}/{package}.html", config=config.name(), package=package.generated_name()), |o|{
                     writeln!(o, "<!DOCTYPE html>")?;
@@ -115,9 +115,21 @@ impl platform_common::Tool for Tool {
                     "release"   => { cmd.arg("--release"); },
                     other       => fatal!("unexpected config: {:?}", other),
                 }
-                cmd.status0().or_die();
+                cmd.io0(filter_stdout, filter_stderr).or_die();
             }
         }
     }
+}
 
+fn filter_stderr(line: &str) {
+    let trim = line.trim();
+    
+    if      trim.starts_with("Processing \"") && trim.ends_with(".wasm\"...")   { status!("Processing", "{}", &trim["Processing \"".len()..trim.len()-"\"...".len()]); }
+    else if trim.starts_with("Compiling ")                                      { status!("Compiling",  "{}", &trim["Compiling ".len()..]); }
+    else if trim.starts_with("Finished ")                                       {} // too much spam
+    else                                                                        { eprintln!("{}", line); }
+}
+
+fn filter_stdout(line: &str) {
+    println!("{}", line);
 }
