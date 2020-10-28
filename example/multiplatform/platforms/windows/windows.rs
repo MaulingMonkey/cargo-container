@@ -102,7 +102,7 @@ impl State {
     }
 
     fn test(&self) {
-        if !cfg(windows) {
+        if !cfg!(windows) {
             warning!("skipping tests - `cargo test --target *-pc-windows-*` requires windows");
             return;
         }
