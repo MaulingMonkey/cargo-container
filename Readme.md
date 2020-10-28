@@ -4,7 +4,6 @@ Wrap vanilla cargo rlibs/packages in generated "containers" for various ends.
 
 [![GitHub](https://img.shields.io/github/stars/MaulingMonkey/cargo-container.svg?label=GitHub&style=social)](https://github.com/MaulingMonkey/cargo-container)
 [![crates.io](https://img.shields.io/crates/v/cargo-container.svg)](https://crates.io/crates/cargo-container)
-[![docs.rs](https://docs.rs/cargo-container/badge.svg)](https://docs.rs/cargo-container)
 [![License](https://img.shields.io/crates/l/cargo_container.svg)](https://github.com/MaulingMonkey/cargo-container)
 [![Build Status](https://travis-ci.com/MaulingMonkey/cargo-container.svg?branch=master)](https://travis-ci.com/MaulingMonkey/cargo-container)
 <!-- [![dependency status](https://deps.rs/repo/github/MaulingMonkey/cargo-container/status.svg)](https://deps.rs/repo/github/MaulingMonkey/cargo-container) -->
@@ -51,3 +50,7 @@ at your option.
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
 dual licensed as above, without any additional terms or conditions.
+
+
+
+[example/multiplatform]:        https://github.com/MaulingMonkey/cargo-container/tree/master/example/multiplatform
