@@ -99,3 +99,40 @@ Displays the dialog as a message box.  Will cross-compile to windows on non-wind
 | `target/wasm32-unknown-unknown/debug/alpha-web-sys/index.html`    | debug | web-sys       | \*        | browser
 | `target/release/...`                                              | release
 | `target/*/release/...`                                            | release
+
+
+
+<h2 name="advanced-ideas">advanced-ideas</h2>
+
+In this demo, I abuse traits for monomorphization.
+Perhaps instead you'd prefer global `Mutex<Box<dyn Whatever>>`s?
+This *can* lead to issues if `app` uses a different version of `app_common`.
+(e.g. `reqwest` might use `tokio 0.2` and explode at runtime because you've only initialized a `tokio 0.3` runtime)
+
+```rust
+fn main() {
+    let dp : Box<dyn DialogProvider> = Box::new(ConsoleDialogProvider);
+    app_common::set_dialog_provider(dp);
+    app::init();
+}
+```
+
+Alternatively, maybe you can make `app_common` entirely self configuring:
+
+```rust
+fn main() {
+    app::init();
+}
+```
+
+Multiple entry points for different frontends is also possible:
+
+```rust
+// Different platform feature-sets?
+pub fn init_console(ctx: impl GamepadInput) { ... }
+pub fn init_desktop(ctx: impl GamepadInput + KeyboardInput + MouseInput) { ... }
+
+// Different contexts
+pub fn render_2d(ctx: impl RenderContext2D) { ... }
+pub fn render_3d(ctx: impl RenderContext3D) { ... }
+```
