@@ -19,5 +19,5 @@ script:
   - |
     export PATH=$(pwd)/target/release:$PATH
     cd example/multiplatform
-    cargo container build
-    cargo container test
+    cargo container build --config debug --config release
+    cargo container test  --config debug --config release
