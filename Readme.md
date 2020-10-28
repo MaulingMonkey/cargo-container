@@ -53,4 +53,59 @@ dual licensed as above, without any additional terms or conditions.
 
 
 
+<h2 name="alternatives">Alternatives</h2>
+
+## Why not vanilla cargo / [build.rs] / [metabuild] scripts ?
+
+* Cargo is intentionally *not* trying to support everything to keep things simple/sane.  Understandable, but crippling.
+* Dependency builds are isolated even when you have use cases for them modifying the final output.
+* No support for additional build rules after invoking rustc.
+
+There's already a slew of nonstandard build tools for various specialized needs as a result:
+* [cargo dinghy]
+* [cargo apk]
+* [cargo ndk]
+* [cargo web]
+* [cargo make]
+* [rust-android-gradle]
+* [wasm-pack]
+
+These are generally non-composable, incoherent, require extra setup steps to install, etc.
+
+## Why not `cargo run tools -- [...]` / `.cargo/config` aliases?
+
+This is pretty neato.
+* Intro:    https://matklad.github.io/2018/01/03/make-your-own-make.html
+* Example:  https://github.com/rust-analyzer/rust-analyzer/blob/master/.cargo/config
+
+I want something more zero-config/automatic/declarative for early projects though.  Kind of a [metabuild] equivalent.
+I will steal as much inspiration from this as I can.
+
+## Why not [cargo make] ?
+
+It seems pretty great, but has a few drawbacks:
+* It's unopinionated and lacks standardization - projects will be inconsistent
+* Bring your own build rules
+* No sane defaults for way too many project types
+* Little-to-no support for creating reusable standard rules, unless you count hardcoding wget s into your own makefiles - which I don't.
+
+## Why not \[non rust toolchain\] ?
+
+* Packaging build rules in crates sounds neato.
+* Auto-adding build rules based on dependencies sounds neato.
+
+
+
+<!-- internal -->
 [example/multiplatform]:        https://github.com/MaulingMonkey/cargo-container/tree/master/example/multiplatform
+
+<!-- external -->
+[build.rs]:                     https://doc.rust-lang.org/cargo/reference/build-scripts.html
+[cargo dinghy]:                 https://crates.io/crates/cargo-dinghy
+[cargo apk]:                    https://crates.io/crates/cargo-apk
+[cargo ndk]:                    https://crates.io/crates/cargo-ndk
+[cargo web]:                    https://crates.io/crates/cargo-web
+[cargo make]:                   https://crates.io/crates/cargo-make
+[metabuild]:                    https://doc.rust-lang.org/cargo/reference/unstable.html#metabuild
+[rust-android-gradle]:          https://github.com/mozilla/rust-android-gradle
+[wasm-pack]:                    https://crates.io/crates/wasm-pack
