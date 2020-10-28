@@ -10,4 +10,4 @@ edition         = "2018"
 path            = "common.rs"
 
 [dependencies]
-mmrbi           = { git = "https://github.com/MaulingMonkey/mmrbi" }
+mmrbi           = "0.0.5"
