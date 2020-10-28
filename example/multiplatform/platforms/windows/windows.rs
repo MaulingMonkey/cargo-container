@@ -102,6 +102,11 @@ impl State {
     }
 
     fn test(&self) {
+        if !cfg(windows) {
+            warning!("skipping tests - `cargo test --target *-pc-windows-*` requires windows");
+            return;
+        }
+
         for config in self.configs.iter() {
             let mut cmd = Command::new("cargo");
             cmd.args(&["test"]);
