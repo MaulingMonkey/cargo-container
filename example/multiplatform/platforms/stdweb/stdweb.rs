@@ -77,7 +77,7 @@ impl State {
     }
 
     fn test(&self) {
-        if mmrbi::VersionReq::parse("^1.44").unwrap().matches(&rustc::version().or_die().version) {
+        if rustc::version().or_die().is_after(1, 43, 0) { // last known good rustc version
             warning!("skipping tests - `cargo web test` is broken on rustc 1.44+ (see https://github.com/koute/cargo-web/issues/243 for details)");
             return;
         }
