@@ -4,8 +4,9 @@ pub extern crate mmrbi;
 use sha2::Digest;
 
 use mmrbi::*;
-use mmrbi::env::{req_var_str, req_var_path};
+use mmrbi::env::*;
 
+use std::collections::BTreeSet;
 use std::fmt::{Write as _ };
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -53,13 +54,28 @@ pub struct State {
     pub command:    String,
     pub packages:   Vec<Package>,
     pub configs:    Vec<Config>,
+    pub arches:     Arches,
 }
 impl State {
     fn get(suffix: &str) -> Self {
         let command     = env::var_str("CARGO_CONTAINER_COMMAND").unwrap_or_else(|err| fatal!("{}: did you not run this via `cargo container`?", err));
         let configs     = Config::list();
         let packages    = Package::list(suffix);
-        Self { command, packages, configs }
+        let arches      = Arches::get();
+        Self { command, packages, configs, arches }
+    }
+}
+
+
+
+pub struct Arches(BTreeSet<String>);
+impl Arches {
+    pub fn get() -> Self { Self(opt_var_lossy("CARGO_CONTAINER_ARCHES").map_or(Default::default(), |s| s.split(',').map(String::from).collect())) }
+
+    pub fn contains(&self, arch: &str) -> Option<bool> {
+        if      self.0.contains("*")    { Some(true) }
+        else if self.0.is_empty()       { None }
+        else                            { Some(self.0.contains(arch)) }
     }
 }
 
