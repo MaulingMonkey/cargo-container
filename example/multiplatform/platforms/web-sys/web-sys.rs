@@ -71,7 +71,6 @@ impl platform_common::Tool for Tool {
             if cond {
                 any = true;
                 if !std::path::Path::new(out).exists() {
-                    dbg!("downloading");
                     Download { name, url, sha256 }.download_gunzip_untar_entry_to(file, out);
                 }
             }
