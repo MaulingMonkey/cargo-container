@@ -44,7 +44,8 @@
             "internalConsoleOptions":   "openOnSessionStart",
             "preLaunchTask":            "cargo build --package cargo-container --bin cargo-container",
             "program":                  "${workspaceFolder}/target/debug/cargo-container",
-            "cwd":                      "${workspaceFolder}",
+            "cwd":                      "${workspaceFolder}/example/multiplatform",
+            "args":                     ["build"],
             "environment":              [ { "name": "RUST_BACKTRACE", "value": "1" } ],
             "windows": {
                 "type":                     "cppvsdbg",
@@ -59,7 +60,8 @@
             "internalConsoleOptions":   "openOnSessionStart",
             "preLaunchTask":            "cargo build --package cargo-container --bin cargo-container --release",
             "program":                  "${workspaceFolder}/target/release/cargo-container",
-            "cwd":                      "${workspaceFolder}",
+            "cwd":                      "${workspaceFolder}/example/multiplatform",
+            "args":                     ["build"],
             "environment":              [ { "name": "RUST_BACKTRACE", "value": "1" } ],
             "windows": {
                 "type":                     "cppvsdbg",
