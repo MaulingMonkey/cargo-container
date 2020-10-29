@@ -1,0 +1,2 @@
+[alias]
+container   = "run --quiet --release --bin cargo-container --manifest-path ../../Cargo.toml -- container"

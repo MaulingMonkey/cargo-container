@@ -148,6 +148,7 @@ impl Download {
         let mut o = std::fs::File::create(to.as_ref()).unwrap_or_else(|err| fatal!("failed to create {}: {}", to.as_ref().display(), err));
         o.write_all(self.download_gunzip().as_ref()).unwrap_or_else(|err| fatal!("failed to write to {}: {}", to.as_ref().display(), err));
         #[cfg(unix)] {
+            use std::os::unix::fs::PermissionsExt;
             let mut perms = o.metadata().unwrap_or_else(|err| fatal!("failed to get permissions for {}: {}", to.as_ref().display(), err)).permissions();
             perms.set_mode(_unix_mode);
             o.set_permissions(perms).unwrap_or_else(|err| fatal!("failed to set permissions for {}: {}", to.as_ref().display(), err));
@@ -162,9 +163,10 @@ impl Download {
             if path == entry.as_ref() {
                 e.unpack(to.as_ref()).unwrap_or_else(|err| fatal!("failed to unpack {} to {}: {}", entry.as_ref().display(), to.as_ref().display(), err));
                 #[cfg(unix)] {
+                    use std::os::unix::fs::PermissionsExt;
                     let mut perms = to.as_ref().metadata().unwrap_or_else(|err| fatal!("failed to get permissions for {}: {}", to.as_ref().display(), err)).permissions();
                     perms.set_mode(_unix_mode);
-                    to.as_ref().set_permissions(perms).unwrap_or_else(|err| fatal!("failed to set permissions for {}: {}", to.as_ref().display(), err));
+                    std::fs::set_permissions(to.as_ref(), perms).unwrap_or_else(|err| fatal!("failed to set permissions for {}: {}", to.as_ref().display(), err));
                 }
                 return;
             }
