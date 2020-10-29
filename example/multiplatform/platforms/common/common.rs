@@ -68,9 +68,16 @@ impl State {
 
 
 
+#[derive(Debug)]
 pub struct Arches(BTreeSet<String>);
 impl Arches {
-    pub fn get() -> Self { Self(opt_var_lossy("CARGO_CONTAINER_ARCHES").map_or(Default::default(), |s| s.split(',').map(String::from).collect())) }
+    pub fn get() -> Self {
+        Self(match opt_var_lossy("CARGO_CONTAINER_ARCHES") {
+            None                => Default::default(),
+            Some(s) if s == ""  => Default::default(),
+            Some(s)             => s.split(',').map(String::from).collect()
+        })
+    }
 
     pub fn contains(&self, arch: &str) -> Option<bool> {
         if      self.0.contains("*")    { Some(true) }
@@ -81,6 +88,7 @@ impl Arches {
 
 
 
+#[derive(Debug)]
 pub struct Config(String);
 impl Config {
     pub fn list() -> Vec<Config> { req_var_str("CARGO_CONTAINER_CONFIGS").split(',').map(|s| Config(s.into())).collect() }
@@ -88,6 +96,7 @@ impl Config {
 }
 
 
+#[derive(Debug)]
 pub struct Package {
     // e.g. "alpha"
     name:           String,
