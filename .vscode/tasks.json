@@ -12,7 +12,7 @@
         {
             "label":            "default-build",
             "dependsOrder":     "sequence",
-            "dependsOn":        [ "build cargo-container", "build example platforms", "build example multiplatform", "test example multiplatform", "doc" ],
+            "dependsOn":        [ "build cargo-container", "build example platforms", "build example multiplatform", "test example multiplatform" ],
             "group":            { "kind": "build", "isDefault": true }
         },
 
@@ -73,7 +73,7 @@
         // build example multiplatform
         {
             "label":            "build example multiplatform",
-            "command":          "cargo container build",
+            "command":          "cargo container build --config debug --config release",
             "options":          { "cwd": "${workspaceFolder}/example/multiplatform" },
             "presentation":     { "clear": true, "group": "build example multiplatform", "reveal": "always" },
             "problemMatcher":   { "base": "$rustc", "owner": "build example multiplatform", "source": "build example multiplatform", "fileLocation": ["relative", "${workspaceFolder}/example/multiplatform"] },
@@ -84,7 +84,7 @@
         // test example multiplatform
         {
             "label":            "test example multiplatform",
-            "command":          "cargo container test",
+            "command":          "cargo container test --config debug --config release",
             "options":          { "cwd": "${workspaceFolder}/example/multiplatform" },
             "presentation":     { "clear": true, "group": "test example multiplatform", "reveal": "always" },
             "problemMatcher":   { "base": "$rustc", "owner": "test example multiplatform", "source": "test example multiplatform", "fileLocation": ["relative", "${workspaceFolder}/example/multiplatform"] },
