@@ -3,9 +3,6 @@ platform-console    = { path = "platforms/console" }
 platform-stdweb     = { path = "platforms/stdweb"  }
 platform-web-sys    = { path = "platforms/web-sys" }
 platform-windows    = { path = "platforms/windows" }
-# XXX: platform-* should auto-install these perhaps...?
-wasm-pack           = "0.9.1"
-cargo-web           = "0.6"
 
 [workspace]
 members = [
