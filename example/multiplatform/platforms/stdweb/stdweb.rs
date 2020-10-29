@@ -59,7 +59,7 @@ impl platform_common::Tool for Tool {
             if cond {
                 any = true;
                 if !std::path::Path::new(out).exists() {
-                    Download { name, url, sha256 }.download_gunzip_to(out);
+                    Download { name, url, sha256 }.download_gunzip_to(out, 0o755);
                 }
             }
         }
