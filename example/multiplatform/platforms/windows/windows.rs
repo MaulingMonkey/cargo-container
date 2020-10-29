@@ -3,6 +3,7 @@ use platform_common::*;
 use mmrbi::*;
 use mmrbi::fs::write_if_modified_with as wimw;
 
+use std::collections::BTreeSet;
 use std::io::Write;
 
 
@@ -26,40 +27,67 @@ use std::io::Write;
 // sudo apt-get install mingw-w64
 // sudo ln -s /usr/bin/x86_64-w64-mingw32-windres /usr/bin/windres ?
 
-const PREFERRED_TARGET : &'static [&'static str] = &[
-    "x86_64-pc-windows-msvc",
-    "i686-pc-windows-msvc",
-    "i586-pc-windows-msvc",
-
-    "x86_64-pc-windows-gnu",
-    "i686-pc-windows-gnu",
-    "i586-pc-windows-gnu",
-];
-
 fn main() {
-    let target = {
-        let installed = mmrbi::Rustup::default().or_die().toolchains().active().expect("no toolchain active").targets().installed();
-        PREFERRED_TARGET.iter().copied().filter(|t| installed.contains(*t)).next().unwrap_or_else(||{
-            fatal!("Unable to find {{x86_64,i686,i586}}-pc-windows-{{msvc,gnu}}");
-        })
-    };
-    platform_common::exec(Tool { target }, "windows")
+    platform_common::exec(Tool, "windows")
 }
 
-struct Tool {
-    target: &'static str,
+struct Tool;
+
+impl Tool {
+    fn targets(&self, state: &State) -> BTreeSet<Option<&'static str>> {
+        let rustup = mmrbi::Rustup::default().unwrap_or_else(|err| fatal!("unable to find rustup: {}", err));
+        let toolchain = rustup.toolchains().active().unwrap_or_else(|| fatal!("no active rustup toolchain"));
+
+        let aarch64 = toolchain.as_str().contains("-aarch64-");
+        let x86_64  = toolchain.as_str().contains("-x86_64-");
+        let i686    = toolchain.as_str().contains("-i686-");
+        let i586    = toolchain.as_str().contains("-i586-");
+
+        let mut targets = BTreeSet::new();
+        if toolchain.as_str().ends_with("-msvc") {
+            if state.arches.contains("aarch64"  ).unwrap_or(aarch64) { targets.insert(Some("aarch64-pc-windows-msvc"  )); }
+            if state.arches.contains("x86_64"   ).unwrap_or(x86_64 ) { targets.insert(Some("x86_64-pc-windows-msvc"   )); }
+            if state.arches.contains("x86"      ).unwrap_or(false  ) { targets.insert(Some("i686-pc-windows-msvc"     )); }
+            if state.arches.contains("i686"     ).unwrap_or(i686   ) { targets.insert(Some("i686-pc-windows-msvc"     )); }
+            if state.arches.contains("i586"     ).unwrap_or(i586   ) { targets.insert(Some("i586-pc-windows-msvc"     )); }
+        } else if toolchain.as_str().ends_with("-gnu") {
+            if state.arches.contains("aarch64"  ).unwrap_or(aarch64) { targets.insert(Some("aarch64-pc-windows-gnu"   )); }
+            if state.arches.contains("x86_64"   ).unwrap_or(x86_64 ) { targets.insert(Some("x86_64-pc-windows-gnu"    )); }
+            if state.arches.contains("x86"      ).unwrap_or(false  ) { targets.insert(Some("i686-pc-windows-gnu"      )); }
+            if state.arches.contains("i686"     ).unwrap_or(i686   ) { targets.insert(Some("i686-pc-windows-gnu"      )); }
+            if state.arches.contains("i586"     ).unwrap_or(i586   ) { targets.insert(Some("i586-pc-windows-gnu"      )); }
+        } else {
+            warning!("expected '*-msvc' or '*-gnu' toolchain but got {} - will try the default target", toolchain);
+        }
+        if targets.is_empty() {
+            targets.insert(None);
+        }
+        targets
+    }
 }
 
 impl platform_common::Tool for Tool {
     fn setup(&self, state: &State) {
         let rustup = mmrbi::Rustup::default().unwrap_or_else(|err| fatal!("unable to find rustup: {}", err));
         let toolchain = rustup.toolchains().active().unwrap_or_else(|| fatal!("no active rustup toolchain"));
+
+        let aarch64 = toolchain.as_str().contains("-aarch64-");
+        let x86_64  = toolchain.as_str().contains("-x86_64-");
+        let i686    = toolchain.as_str().contains("-i686-");
+        let i586    = toolchain.as_str().contains("-i586-");
+
         if toolchain.as_str().ends_with("-msvc") {
-            toolchain.targets().add("x86_64-pc-windows-msvc").or_die();
-            toolchain.targets().add(  "i686-pc-windows-msvc").or_die();
+            if state.arches.contains("aarch64"  ).unwrap_or(aarch64       ) { toolchain.targets().add("aarch64-pc-windows-msvc"  ).or_die() }
+            if state.arches.contains("x86_64"   ).unwrap_or(x86_64        ) { toolchain.targets().add("x86_64-pc-windows-msvc"   ).or_die() }
+            if state.arches.contains("x86"      ).unwrap_or(false         ) { toolchain.targets().add("i686-pc-windows-msvc"     ).or_die() }
+            if state.arches.contains("i686"     ).unwrap_or(i686 || x86_64) { toolchain.targets().add("i686-pc-windows-msvc"     ).or_die() }
+            if state.arches.contains("i586"     ).unwrap_or(i586          ) { toolchain.targets().add("i586-pc-windows-msvc"     ).or_die() }
         } else if toolchain.as_str().ends_with("-gnu") {
-            toolchain.targets().add("x86_64-pc-windows-gnu").or_die();
-            toolchain.targets().add(  "i686-pc-windows-gnu").or_die();
+            if state.arches.contains("aarch64"  ).unwrap_or(aarch64       ) { toolchain.targets().add("aarch64-pc-windows-gnu"  ).or_die() }
+            if state.arches.contains("x86_64"   ).unwrap_or(x86_64        ) { toolchain.targets().add("x86_64-pc-windows-gnu"   ).or_die() }
+            if state.arches.contains("x86"      ).unwrap_or(false         ) { toolchain.targets().add("i686-pc-windows-gnu"     ).or_die() }
+            if state.arches.contains("i686"     ).unwrap_or(i686 || x86_64) { toolchain.targets().add("i686-pc-windows-gnu"     ).or_die() }
+            if state.arches.contains("i586"     ).unwrap_or(i586          ) { toolchain.targets().add("i586-pc-windows-gnu"     ).or_die() }
         } else {
             warning!("unable to setup platform-windows for toolchain {}: expected '*-msvc' or '*-gnu'", toolchain);
         }
@@ -114,17 +142,22 @@ impl platform_common::Tool for Tool {
     }
 
     fn build(&self, state: &State) {
+        let targets = self.targets(state);
         for config in state.configs.iter() {
-            let mut cmd = Command::new("cargo");
-            cmd.args(&["build"]);
-            cmd.arg("--target").arg(self.target);
-            match config.name() {
-                "debug"     => {},
-                "release"   => { cmd.arg("--release"); },
-                other       => fatal!("unexpected config: {:?}", other),
+            for target in targets.iter().copied() {
+                let mut cmd = Command::new("cargo");
+                cmd.args(&["build"]);
+                if let Some(target) = target {
+                    cmd.arg("--target").arg(target);
+                }
+                match config.name() {
+                    "debug"     => {},
+                    "release"   => { cmd.arg("--release"); },
+                    other       => fatal!("unexpected config: {:?}", other),
+                }
+                for package in state.packages.iter() { cmd.arg("-p"); cmd.arg(&package.generated_name()); }
+                cmd.status0().or_die()
             }
-            for package in state.packages.iter() { cmd.arg("-p"); cmd.arg(&package.generated_name()); }
-            cmd.status0().or_die()
         }
     }
 
@@ -134,17 +167,22 @@ impl platform_common::Tool for Tool {
             return;
         }
 
+        let targets = self.targets(state);
         for config in state.configs.iter() {
-            let mut cmd = Command::new("cargo");
-            cmd.args(&["test"]);
-            cmd.arg("--target").arg(self.target);
-            match config.name() {
-                "debug"     => {},
-                "release"   => { cmd.arg("--release"); },
-                other       => fatal!("unexpected config: {:?}", other),
+            for target in targets.iter().copied() {
+                let mut cmd = Command::new("cargo");
+                cmd.args(&["test"]);
+                if let Some(target) = target {
+                    cmd.arg("--target").arg(target);
+                }
+                match config.name() {
+                    "debug"     => {},
+                    "release"   => { cmd.arg("--release"); },
+                    other       => fatal!("unexpected config: {:?}", other),
+                }
+                for package in state.packages.iter() { cmd.arg("-p"); cmd.arg(&package.generated_name()); }
+                cmd.status0().or_die()
             }
-            for package in state.packages.iter() { cmd.arg("-p"); cmd.arg(&package.generated_name()); }
-            cmd.status0().or_die()
         }
     }
 }
