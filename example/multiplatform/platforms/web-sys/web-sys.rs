@@ -7,13 +7,87 @@ use std::io::Write;
 
 
 
+#[derive(Clone, Copy)]
+pub struct WasmPackTarGz {
+    pub name:   &'static str,
+    pub cond:   bool,
+    pub url:    &'static str,
+    pub sha256: &'static str,
+    pub file:   &'static str,
+    pub out:    &'static str,
+}
+
+pub const WASM_PACK_VERSION : &'static str = "0.9.1";
+
+pub const WASM_PACK_TARS : &'static [WasmPackTarGz] = &[
+    WasmPackTarGz {
+        name:   "wasm-pack 0.9.1",
+        cond:   cfg!(target_os = "macos") && cfg!(target_arch = "x86_64"),
+        url:    "https://github.com/rustwasm/wasm-pack/releases/download/v0.9.1/wasm-pack-v0.9.1-x86_64-apple-darwin.tar.gz",
+        sha256: "A98C70F0A40B1689EEAF639611EC6B18D0A73ABB4A881533C8E0C2861457440F",
+        file:   "wasm-pack-v0.9.1-x86_64-apple-darwin/wasm-pack",
+        out:    "bin/wasm-pack-0.9.1",
+    },
+    WasmPackTarGz {
+        name:   "wasm-pack 0.9.1",
+        cond:   cfg!(target_os = "linux") && cfg!(target_arch = "x86_64"),
+        url:    "https://github.com/rustwasm/wasm-pack/releases/download/v0.9.1/wasm-pack-v0.9.1-x86_64-unknown-linux-musl.tar.gz",
+        sha256: "D478BD20811067566BFC88141AFCC857E7713B5385C684F6D50E7C2D549847F7",
+        file:   "wasm-pack-v0.9.1-x86_64-unknown-linux-musl/wasm-pack",
+        out:    "bin/wasm-pack-0.9.1",
+    },
+    WasmPackTarGz {
+        name:   "wasm-pack 0.9.1",
+        cond:   cfg!(target_os = "windows") && cfg!(target_arch = "x86_64"),
+        url:    "https://github.com/rustwasm/wasm-pack/releases/download/v0.9.1/wasm-pack-v0.9.1-x86_64-pc-windows-msvc.tar.gz",
+        sha256: "DEDD292BFE24756A46687E166DDD86E5DABC34CC5E43901D0EFB6FD33DA940A6",
+        file:   "wasm-pack-v0.9.1-x86_64-pc-windows-msvc/wasm-pack.exe",
+        out:    "bin/wasm-pack-0.9.1.exe",
+    },
+];
+
+
+
 trait PackageExt                { fn generated_target(&self) -> String; }
 impl  PackageExt for Package    { fn generated_target(&self) -> String { self.generated_name().replace("-", "_") } }
 
 fn main() { platform_common::exec(Tool, "web-sys") }
 
+fn wasm_pack() -> Command {
+    let cmd = if WASM_PACK_TARS.iter().any(|wpt| wpt.cond) { "wasm-pack-0.9.1" } else { "wasm-pack" };
+    let ext = if cfg!(windows) { ".exe" } else { "" };
+    Command::new(format!("{}{}", cmd, ext))
+}
+
 struct Tool;
 impl platform_common::Tool for Tool {
+    fn setup(&self, _state: &State) {
+        let rustup = mmrbi::Rustup::default().unwrap_or_else(|err| fatal!("unable to find rustup: {}", err));
+        let toolchain = rustup.toolchains().active().unwrap_or_else(|| fatal!("no active rustup toolchain"));
+        toolchain.targets().add("wasm32-unknown-unknown").unwrap_or_else(|err| warning!("{}", err));
+
+        let mut any = false;
+        for WasmPackTarGz { name, cond, url, sha256, file, out } in WASM_PACK_TARS.iter().copied() {
+            if cond {
+                any = true;
+                if !std::path::Path::new(out).exists() {
+                    dbg!("downloading");
+                    Download { name, url, sha256 }.download_gunzip_untar_entry_to(file, out);
+                }
+            }
+        }
+
+        if !any {
+            cargo_local_install::run_from_strs(vec![
+                "--no-path-warning",
+                "wasm-pack",
+                "--locked",
+                "--version",
+                &format!("^{}", WASM_PACK_VERSION),
+            ].into_iter()).unwrap_or_else(|err| fatal!("cargo local-install wasm-pack failed: {}", err));
+        }
+    }
+
     fn generate(&self, state: &State) {
         for package in state.packages.iter() {
             let out_dir = package.generated_path();
@@ -58,7 +132,7 @@ impl platform_common::Tool for Tool {
     fn build(&self, state: &State) {
         for config in state.configs.iter() {
             for package in state.packages.iter() {
-                let mut cmd = Command::new("wasm-pack");
+                let mut cmd = wasm_pack();
                 cmd.current_dir(package.generated_path());
                 let pkg_dir = format!("../../../../target/wasm32-unknown-unknown/{config}/{package}", config=config.name(), package=package.generated_name());
                 cmd.args(&["build", "--no-typescript", "--target", "no-modules", "--out-dir", &pkg_dir]);
@@ -103,7 +177,7 @@ impl platform_common::Tool for Tool {
     fn test(&self, state: &State) {
         for config in state.configs.iter() {
             for package in state.packages.iter() {
-                let mut cmd = Command::new("wasm-pack");
+                let mut cmd = wasm_pack();
                 cmd.current_dir(package.generated_path());
                 cmd.args(&["test", "--headless"]);
 

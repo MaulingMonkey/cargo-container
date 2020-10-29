@@ -31,17 +31,18 @@ pub fn run() {
         "version"               => version(args),
 
         // General Commands
-        "bench"                 => gen_then_fwd(&meta, args, cmd, false, "Benchmarking"),
-        "build" | "b"           => gen_then_fwd(&meta, args, cmd, false, "Building"),
-        "check" | "c"           =>{gen_then_fwd(&meta, args, cmd, true,  "Checking"); Command::new("cargo").arg("check").status0().or_die(); },
+        "bench"                 => gen_then_fwd(&meta, args, "bench",   false, "Benchmarking"),
+        "build" | "b"           => gen_then_fwd(&meta, args, "build",   false, "Building"),
+        "check" | "c"           =>{gen_then_fwd(&meta, args, "check",   true,  "Checking"); Command::new("cargo").arg("check").status0().or_die(); },
         "clean"                 => clean(&meta, args),
-        "doc"                   => gen_then_fwd(&meta, args, cmd, false, "Documenting"),
-        "fetch"                 =>{gen_then_fwd(&meta, args, cmd, true,  "Fetching"); Command::new("cargo").arg("fetch").status0().or_die(); }
-        "fuzz"                  => gen_then_fwd(&meta, args, cmd, false, "Fuzzing"),
-        "package"               => gen_then_fwd(&meta, args, cmd, false, "Packaging"),
-        "run" | "r"             => gen_then_fwd(&meta, args, cmd, false, "Running"), // XXX: Is this what we actually want?
-        "test" | "t"            => gen_then_fwd(&meta, args, cmd, false, "Testing"),
-        "update"                => gen_then_fwd(&meta, args, cmd, false, "Updating"),
+        "doc"                   => gen_then_fwd(&meta, args, "doc",     false, "Documenting"),
+        "fetch"                 =>{gen_then_fwd(&meta, args, "fetch",   true,  "Fetching"); Command::new("cargo").arg("fetch").status0().or_die(); }
+        "fuzz"                  => gen_then_fwd(&meta, args, "fuzz",    false, "Fuzzing"),
+        "package"               => gen_then_fwd(&meta, args, "package", false, "Packaging"),
+        "run" | "r"             => gen_then_fwd(&meta, args, "run",     false, "Running"), // XXX: Is this what we actually want?
+        "setup"                 => gen_then_fwd(&meta, args, "setup",   false, "Setup"),
+        "test" | "t"            => gen_then_fwd(&meta, args, "test",    false, "Testing"),
+        "update"                => gen_then_fwd(&meta, args, "update",  false, "Updating"),
 
         // NYI commands
         "generate-lockfile"     => fatal!("not yet implemented: {}", cmd),
@@ -130,7 +131,7 @@ impl Args {
     }
 }
 
-fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, cmd: &str, ok_none: bool, verbing: &str) {
+fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, command: &str, ok_none: bool, verbing: &str) {
     let args = Args::from(args);
     generate::dot_container(meta);
     generate::workspace_toml(meta);
@@ -165,7 +166,7 @@ fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, cmd: &str, ok_none
                 status!(verbing, "{} | {} | {} crates", tool, config, crates.len());
                 let mut cmd = Command::new(tool.as_str());
                 cmd.env("PATH",                         &path);
-                cmd.env("CARGO_CONTAINER_COMMAND",      "build");
+                cmd.env("CARGO_CONTAINER_COMMAND",      command);
                 cmd.env("CARGO_CONTAINER_CRATES_DIR",   format!(".container/crates/{}", tool));
                 cmd.env("CARGO_CONTAINER_ARCHES",       &arches);
                 cmd.env("CARGO_CONTAINER_CONFIGS",      config);
@@ -188,7 +189,7 @@ fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, cmd: &str, ok_none
             }
         }
     }
-    if !builds { fatal!("`{}`: matched no crate x tool combinations", cmd) }
+    if !builds { fatal!("`{}`: matched no crate x tool combinations", command) }
 }
 
 fn clean(meta: &ContainerToml, args: std::env::ArgsOs) {

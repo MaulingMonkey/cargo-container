@@ -9,10 +9,72 @@ use std::io::Write;
 
 
 
+#[derive(Clone, Copy)]
+pub struct CargoWebGz {
+    pub name:   &'static str,
+    pub cond:   bool,
+    pub url:    &'static str,
+    pub sha256: &'static str,
+    pub out:    &'static str,
+}
+
+pub const CARGO_WEB_VERSION : &'static str = "0.6.26";
+
+pub const CARGO_WEB_GZS : &'static [CargoWebGz] = &[
+    CargoWebGz {
+        name:   "cargo-web 0.6.26",
+        cond:   cfg!(target_os = "macos") && cfg!(target_arch = "x86_64"),
+        url:    "https://github.com/koute/cargo-web/releases/download/0.6.26/cargo-web-x86_64-apple-darwin.gz",
+        sha256: "010AF3A9E87F925B75AD03BA729864F96490E720C4BFED82B57AA42B64E14B08",
+        out:    "bin/cargo-web-0.6.26",
+    },
+    CargoWebGz {
+        name:   "cargo-web 0.6.26",
+        cond:   cfg!(target_os = "linux") && cfg!(target_arch = "x86_64"),
+        url:    "https://github.com/koute/cargo-web/releases/download/0.6.26/cargo-web-x86_64-unknown-linux-gnu.gz",
+        sha256: "FF4187FC27A9A98CAE331BE2F17042F2D27BA508DA108F886E0893EF30825629",
+        out:    "bin/cargo-web-0.6.26",
+    },
+];
+
+
+
 fn main() { platform_common::exec(Tool, "stdweb") }
+
+fn cargo_web() -> Command {
+    let mut c = Command::new("cargo");
+    c.arg(if CARGO_WEB_GZS.iter().any(|wpt| wpt.cond) { "web-0.6.26" } else { "web" });
+    c
+}
 
 struct Tool;
 impl platform_common::Tool for Tool {
+    fn setup(&self, _state: &State) {
+        let rustup = mmrbi::Rustup::default().or_die();
+        let toolchain = rustup.toolchains().active().ok_or("no active rustup toolchain").or_die();
+        toolchain.targets().add("wasm32-unknown-unknown").unwrap_or_else(|err| warning!("{}", err));
+
+        let mut any = false;
+        for CargoWebGz { name, cond, url, sha256, out } in CARGO_WEB_GZS.iter().copied() {
+            if cond {
+                any = true;
+                if !std::path::Path::new(out).exists() {
+                    Download { name, url, sha256 }.download_gunzip_to(out);
+                }
+            }
+        }
+
+        if !any {
+            cargo_local_install::run_from_strs(vec![
+                "--no-path-warning",
+                "cargo-web",
+                "--locked",
+                "--version",
+                &format!("^{}", CARGO_WEB_VERSION),
+            ].into_iter()).or_die();
+        }
+    }
+
     fn generate(&self, state: &State) {
         for package in state.packages.iter() {
             let out_dir = package.generated_path();
@@ -50,9 +112,9 @@ impl platform_common::Tool for Tool {
     fn build(&self, state: &State) {
         for config in state.configs.iter() {
             for package in state.packages.iter() {
-                let mut cmd = Command::new("cargo");
+                let mut cmd = cargo_web();
                 cmd.current_dir(package.generated_path());
-                cmd.args(&["web", "build"]);
+                cmd.args(&["build"]);
                 match config.name() {
                     "debug"     => {},
                     "release"   => { cmd.arg("--release"); },
@@ -106,9 +168,9 @@ impl platform_common::Tool for Tool {
 
         for config in state.configs.iter() {
             for package in state.packages.iter() {
-                let mut cmd = Command::new("cargo");
+                let mut cmd = cargo_web();
                 cmd.current_dir(package.generated_path());
-                cmd.args(&["web", "test"]);
+                cmd.args(&["test"]);
                 cmd.env("PATH", &path);
                 match config.name() {
                     "debug"     => {},
