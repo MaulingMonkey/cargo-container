@@ -42,9 +42,9 @@ pub const CARGO_WEB_GZS : &'static [CargoWebGz] = &[
 fn main() { platform_common::exec(Tool, "stdweb") }
 
 fn cargo_web() -> Command {
-    let mut c = Command::new("cargo");
-    c.arg(if CARGO_WEB_GZS.iter().any(|wpt| wpt.cond) { "web-0.6.26" } else { "web" });
-    c
+    let cmd = if CARGO_WEB_GZS.iter().any(|wpt| wpt.cond) { "cargo-web-0.6.26" } else { "cargo-web" };
+    let ext = if cfg!(windows) { ".exe" } else { "" };
+    Command::new(format!("{}{}", cmd, ext))
 }
 
 struct Tool;
