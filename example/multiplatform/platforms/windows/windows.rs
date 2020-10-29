@@ -51,6 +51,20 @@ struct Tool {
 }
 
 impl platform_common::Tool for Tool {
+    fn setup(&self, state: &State) {
+        let rustup = mmrbi::Rustup::default().unwrap_or_else(|err| fatal!("unable to find rustup: {}", err));
+        let toolchain = rustup.toolchains().active().unwrap_or_else(|| fatal!("no active rustup toolchain"));
+        if toolchain.as_str().ends_with("-msvc") {
+            toolchain.targets().add("x86_64-pc-windows-msvc").or_die();
+            toolchain.targets().add(  "i686-pc-windows-msvc").or_die();
+        } else if toolchain.as_str().ends_with("-gnu") {
+            toolchain.targets().add("x86_64-pc-windows-gnu").or_die();
+            toolchain.targets().add(  "i686-pc-windows-gnu").or_die();
+        } else {
+            warning!("unable to setup platform-windows for toolchain {}: expected '*-msvc' or '*-gnu'", toolchain);
+        }
+    }
+
     fn generate(&self, state: &State) {
         for package in state.packages.iter() {
             let out_dir = package.generated_path();
