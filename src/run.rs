@@ -40,7 +40,7 @@ pub fn run() {
         "fuzz"                  => gen_then_fwd(&meta, args, "fuzz",    false, "Fuzzing"),
         "package"               => gen_then_fwd(&meta, args, "package", false, "Packaging"),
         "run" | "r"             => gen_then_fwd(&meta, args, "run",     false, "Running"), // XXX: Is this what we actually want?
-        "setup"                 => gen_then_fwd(&meta, args, "setup",   false, "Setup"),
+        "setup"                 => gen_then_fwd(&meta, args, "setup",   true,  "Setup"),
         "test" | "t"            => gen_then_fwd(&meta, args, "test",    false, "Testing"),
         "update"                => gen_then_fwd(&meta, args, "update",  false, "Updating"),
 
@@ -171,18 +171,17 @@ fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, command: &str, ok_
                 cmd.env("CARGO_CONTAINER_ARCHES",       &arches);
                 cmd.env("CARGO_CONTAINER_CONFIGS",      config);
                 cmd.env("CARGO_CONTAINER_PACKAGES",     &crates_s);
-                let status = cmd.status().unwrap_or_else(|err| fatal!("`{}` build failed: {}", tool, err));
+                let status = cmd.status().unwrap_or_else(|err| fatal!("`{}` {} failed: {}", tool, command, err));
 
                 match status.code() {
-                    Some(0x000000)  => builds = true, // success
-                    Some(0xCCEEEE)  => std::process::exit(1), // errors
-                    Some(0xCC3333)  => builds = true, // warnings
-                    Some(0xCC0C21)  => {}, // command not implemented
-                    Some(0xCC0921)  => {}, // platform not implemented
+                    Some(0x00) => builds = true, // success
+                    Some(0xEE) => std::process::exit(1), // errors
+                    Some(0x33) => builds = true, // warnings
+                    Some(0xC1) => {}, // command not implemented
+                    Some(0x91) => {}, // platform not implemented
 
-                    Some(n) if (0xCC0000 ..= 0xCCFFFF).contains(&n) => fatal!("`{}` unrecognized exit code 0x{:x} - is your `cargo container` up-to-date?", tool, n),
-                    Some(n)                                         => fatal!("`{}` build failed (exit code {})", tool, n),
-                    None                                            => fatal!("`{}` build failed (signal)", tool),
+                    Some(n) => fatal!("`{}` {} failed (exit code {})", tool, command, n),
+                    None    => fatal!("`{}` {} failed (signal)", tool, command),
                 }
                 let stop = std::time::Instant::now();
                 status!("Finished", "{} | {} | {} crates in {:.2}s", tool, config, crates.len(), (stop-start).as_secs_f32());
