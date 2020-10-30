@@ -156,7 +156,7 @@ fn setup(meta: &ContainerToml, args: std::env::ArgsOs) {
 
 fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, command: &str, ok_none: bool, verbing: &str) {
     let args = Args::from(args);
-    std::fs::remove_dir_all(".container/scripts/setup").unwrap_or_else(|err| fatal!("unable to remove .container/scripts/setup: {}", err));
+    std::fs::remove_dir_all(".container/scripts/setup").unwrap_or_else(|err| if err.kind() != io::ErrorKind::NotFound { fatal!("unable to remove .container/scripts/setup: {}", err) });
     generate::dot_container(meta);
     generate::workspace_toml(meta);
     local_install(meta);
