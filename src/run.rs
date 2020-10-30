@@ -100,6 +100,13 @@ fn check(meta: &ContainerToml, args: std::env::ArgsOs) {
     Command::new("cargo").arg("check").status0().or_die();
 }
 
+fn clean(meta: &ContainerToml, args: std::env::ArgsOs) {
+    // XXX: cleanup bin dir?
+    let dot_container = meta.root_directory().join(".container");
+    Command::new("cargo").arg("clean").args(args).current_dir(meta.root_directory()).status0().unwrap_or_else(|err| fatal!("`cargo clean` failed: {}", err));
+    std::fs::remove_dir_all(&dot_container).unwrap_or_else(|err| fatal!("`cargo container clean` failed to delete `{}`: {}", dot_container.display(), err));
+}
+
 fn fetch(meta: &ContainerToml, args: std::env::ArgsOs) {
     gen_then_fwd(&meta, args, "fetch", true, "Fetching");
     Command::new("cargo").arg("fetch").status0().or_die();
@@ -177,13 +184,6 @@ fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, command: &str, ok_
         }
     }
     if !builds { fatal!("`{}`: matched no crate x tool combinations", command) }
-}
-
-fn clean(meta: &ContainerToml, args: std::env::ArgsOs) {
-    // XXX: cleanup bin dir?
-    let dot_container = meta.root_directory().join(".container");
-    Command::new("cargo").arg("clean").args(args).current_dir(meta.root_directory()).status0().unwrap_or_else(|err| fatal!("`cargo clean` failed: {}", err));
-    std::fs::remove_dir_all(&dot_container).unwrap_or_else(|err| fatal!("`cargo container clean` failed to delete `{}`: {}", dot_container.display(), err));
 }
 
 fn local_install(meta: &ContainerToml) {
