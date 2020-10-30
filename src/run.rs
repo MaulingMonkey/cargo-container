@@ -2,10 +2,12 @@ use crate::*;
 
 use mmrbi::*;
 
+use std::collections::BTreeSet;
+use std::fmt::Write as _;
 use std::ffi::*;
-use std::io;
-use std::path::Path;
-use std::process::Command;
+use std::io::{self, BufRead, BufReader};
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 
 
 
@@ -114,15 +116,6 @@ fn fetch(meta: &ContainerToml, args: std::env::ArgsOs) {
 
 fn setup(meta: &ContainerToml, args: std::env::ArgsOs) {
     gen_then_fwd(&meta, args, "setup", true, "Setup");
-    if cfg!(target_os = "linux") {
-        if Path::new(".container/scripts/setup/linux.sh").exists() {
-            Command::new("sudo").arg("sh").arg(".container/scripts/setup/linux.sh").status0().or_die();
-        }
-    } else if cfg!(target_os = "macos") {
-        if Path::new(".container/scripts/setup/macos.sh").exists() {
-            Command::new("sudo").arg("sh").arg(".container/scripts/setup/macos.sh").status0().or_die();
-        }
-    }
 }
 
 fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, command: &str, ok_none: bool, verbing: &str) {
@@ -148,6 +141,9 @@ fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, command: &str, ok_
         }
     }
 
+    let mut apt_packages = BTreeSet::new();
+    let mut sudos = Vec::new();
+
     let mut builds = ok_none;
     for build in meta.builds.iter() {
         let crates = build.crates.iter().map(|c| c.as_str()).filter(|c| args.crates.is_empty() || args.crates.contains(*c)).collect::<Vec<_>>();
@@ -166,8 +162,52 @@ fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, command: &str, ok_
                 cmd.env("CARGO_CONTAINER_ARCHES",       &arches);
                 cmd.env("CARGO_CONTAINER_CONFIGS",      config);
                 cmd.env("CARGO_CONTAINER_PACKAGES",     &crates_s);
-                let status = cmd.status().unwrap_or_else(|err| fatal!("`{}` {} failed: {}", tool, command, err));
 
+                cmd.stdin(Stdio::null());
+                cmd.stdout(Stdio::piped());
+                cmd.stderr(Stdio::inherit());
+
+                let prev_sudo_len = sudos.len();
+
+                let mut child = cmd.spawn().unwrap_or_else(|err| fatal!("`{}` {} failed: {}", tool, command, err));
+                let mut stdout = BufReader::new(child.stdout.take().unwrap());
+                let mut line = String::new();
+                loop {
+                    line.clear();
+                    match stdout.read_line(&mut line) {
+                        Ok(0) => break,                                                 // EOF
+                        Err(err) if err.kind() == io::ErrorKind::BrokenPipe => break,   // EPIPE
+                        Err(err) => fatal!("error reading stdout from `{}` {}: {}", tool, command, err),
+                        Ok(_) => {},
+                    }
+                    let line = line.trim_end_matches("\n").trim_end_matches("\r");
+                    if let Some(cc) = unpre(line, "cargo-container:") {
+                        if let Some(sudo) = unpre(cc, "sudo=") {
+                            if prev_sudo_len == sudo.len() {
+                                sudos.push(format!("{} requested by {} {}", if cfg!(windows) { "::" } else { "#" }, tool, command));
+                            }
+                            sudos.push(sudo.into());
+                        } else if let Some(pkg) = unpre(cc, "apt-get-install=") {
+                            apt_packages.insert(String::from(pkg));
+                        } else if let Some(msg) = unpre(cc, "error=") {
+                            error!(code: tool, "{}", msg);
+                        } else if let Some(msg) = unpre(cc, "warning=") {
+                            warning!(code: tool, "{}", msg);
+                        } else if let Some(msg) = unpre(cc, "info=") {
+                            info!(code: tool, "{}", msg);
+                        } else {
+                            warning!("unrecognized directive: {:?}", line);
+                        }
+                    } else {
+                        println!("{}", line); // ...ignore?
+                    }
+                }
+
+                if prev_sudo_len != sudos.len() {
+                    sudos.push(String::new());
+                }
+
+                let status = child.wait().unwrap_or_else(|err| fatal!("`{}` {} failed: {}", tool, command, err));
                 match status.code() {
                     Some(0x00) => builds = true, // success
                     Some(0xEE) => std::process::exit(1), // errors
@@ -184,6 +224,95 @@ fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, command: &str, ok_
         }
     }
     if !builds { fatal!("`{}`: matched no crate x tool combinations", command) }
+
+    if !apt_packages.is_empty() {
+        let mut install = String::from("apt-get install -y");
+        for pkg in apt_packages.iter() {
+            install.push_str(" ");
+            install.push_str(pkg.as_str());
+        }
+        sudos.push(comment("requested by cargo-container for apt-get-install directives"));
+        sudos.push(install);
+        sudos.push(String::new());
+    }
+
+    if !sudos.is_empty() {
+        if sudos.iter().any(|line| line.starts_with("apt-get ")) {
+            sudos.insert(0, String::new());
+            sudos.insert(0, "apt-get update".into());
+            sudos.insert(0, comment("requested by cargo-container for apt-get commands"));
+        }
+
+        let allow_sudo = args.allow_sudo.unwrap_or_else(|| {
+            // return false if command != "setup" with warning?
+            if std::env::var_os("CI").is_some() {
+                return true;
+            }
+
+            info!("tools wish to run the following commands as {}", if cfg!(windows) { "admin" } else { "root" });
+            eprintln!();
+            for line in sudos.iter() {
+                if is_comment(line) {
+                    //eprintln!("    \u{001B}[36;1m{}\u{001B}[0m", line); // green
+                    eprintln!("    \u{001B}[90;1m{}\u{001B}[0m", line); // grey
+                } else {
+                    eprintln!("    {}", line);
+                }
+            }
+            eprint!("would you like to run these commands? (N/y) ");
+
+            let mut answer = String::new();
+            match std::io::stdin().read_line(&mut answer) {
+                Ok(_) => {},
+                Err(err) if err.kind() == io::ErrorKind::BrokenPipe => {
+                    eprintln!("N");
+                    warning!("unable to read answer from stdin, assuming no.  use --allow-sudo to script, or --deny-sudo to supress this message");
+                    return false;
+                },
+                Err(err) => {
+                    fatal!("unable to read answer from stdin: {}", err);
+                },
+            }
+            answer.make_ascii_lowercase();
+            match answer.trim() {
+                "y" | "ye" | "yes"  => true,
+                _other              => false,
+            }
+        });
+
+        if allow_sudo {
+            if cfg!(windows) {
+                #[cfg(windows)] {
+                    // https://docs.rs/winapi/0.3.8/winapi/um/shellapi/fn.ShellExecuteExW.html
+                    // https://docs.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shellexecuteexw
+                    //https://docs.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-shellexecuteinfoa
+
+                    // https://docs.rs/winapi/0.3.8/winapi/um/shellapi/fn.ShellExecuteW.html
+
+                    // CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE)
+                }
+            } else {
+                let mut script = String::new();
+                writeln!(&mut script, "set -e").unwrap();
+                for line in sudos.iter() {
+                    if is_comment(line) { continue }
+                    let quot = format!("{:?}", line);
+                    writeln!(&mut script, "echo \"   \u{001B}[32;1mExecuting\u{001B}[0m {}\"", &quot[1..quot.len()-1]).unwrap();
+                    writeln!(&mut script, "{}", line).unwrap();
+                }
+                std::fs::create_dir_all(".container/scripts").unwrap_or_else(|err| fatal!("unable to create directory .container/scripts: {}", err));
+                let script_path = PathBuf::from(format!(".container/scripts/sudo-{}.sh", std::process::id()));
+                std::fs::write(&script_path, script).unwrap_or_else(|err| fatal!("unable to write {}: {}", script_path.display(), err));
+
+                let mut sh = Command::new("sudo");
+                sh.arg("sh");
+                sh.arg(&script_path);
+                let status = sh.status0();
+                let _ = std::fs::remove_file(&script_path);
+                status.unwrap_or_else(|err| fatal!("`sudo sh {}` failed: {}", script_path.display(), err));
+            }
+        }
+    }
 }
 
 fn local_install(meta: &ContainerToml) {
@@ -192,4 +321,21 @@ fn local_install(meta: &ContainerToml) {
         OsStr::new("--no-path-warning"),
         //OsStr::new("--root"), meta.root_directory().join(".container").as_os_str(),
     ].into_iter()).unwrap_or_else(|err| fatal!("cargo-local-install failed: {}", err));
+}
+
+fn unpre<'s>(s: &'s str, pre: &str) -> Option<&'s str> {
+    if s.starts_with(pre) {
+        Some(&s[pre.len()..])
+    } else {
+        None
+    }
+}
+
+fn is_comment(line: &str) -> bool {
+    let line = line.trim_start();
+    line.is_empty() || line.starts_with(if cfg!(windows) { "::" } else { "#" })
+}
+
+fn comment(c: &str) -> String {
+    format!("{} {}", if cfg!(windows) { "::" } else { "#" }, c)
 }

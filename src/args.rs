@@ -8,6 +8,7 @@ pub struct Args {
     pub configs:    BTreeSet<String>,
     pub crates:     BTreeSet<String>,
     pub tools:      BTreeSet<String>,
+    pub allow_sudo: Option<bool>,
 }
 
 impl Args {
@@ -20,6 +21,8 @@ impl Args {
                 flag @ "--config"   => add_arg(&mut o.configs,  flag, "configuration",  &mut args),
                 flag @ "--crate"    => add_arg(&mut o.crates,   flag, "crate",          &mut args),
                 flag @ "--tool"     => add_arg(&mut o.tools,    flag, "tool",           &mut args),
+                "--allow-sudo"      => o.allow_sudo = Some(true),
+                "--deny-sudo"       => o.allow_sudo = Some(false),
 
                 flag if flag.starts_with("-") => fatal!("unrecognized flag: {}", flag),
                 other => fatal!("unrecognized argument: {}", other),
