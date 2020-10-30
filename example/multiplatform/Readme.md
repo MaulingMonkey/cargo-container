@@ -105,7 +105,7 @@ Displays the dialog as a message box.  Will cross-compile to windows on non-wind
 
 
 
-<h2 name="advanced-ideas">advanced-ideas</h2>
+<h2 name="advanced-ideas">Advanced Ideas</h2>
 
 In this demo, I abuse traits for monomorphization.
 Perhaps instead you'd prefer global `Mutex<Box<dyn Whatever>>`s?
