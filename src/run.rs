@@ -33,14 +33,14 @@ pub fn run() {
         // General Commands
         "bench"                 => gen_then_fwd(&meta, args, "bench",   false, "Benchmarking"),
         "build" | "b"           => gen_then_fwd(&meta, args, "build",   false, "Building"),
-        "check" | "c"           =>{gen_then_fwd(&meta, args, "check",   true,  "Checking"); Command::new("cargo").arg("check").status0().or_die(); },
+        "check" | "c"           => check(&meta, args),
         "clean"                 => clean(&meta, args),
         "doc"                   => gen_then_fwd(&meta, args, "doc",     false, "Documenting"),
-        "fetch"                 =>{gen_then_fwd(&meta, args, "fetch",   true,  "Fetching"); Command::new("cargo").arg("fetch").status0().or_die(); }
+        "fetch"                 => fetch(&meta, args),
         "fuzz"                  => gen_then_fwd(&meta, args, "fuzz",    false, "Fuzzing"),
         "package"               => gen_then_fwd(&meta, args, "package", false, "Packaging"),
         "run" | "r"             => gen_then_fwd(&meta, args, "run",     false, "Running"), // XXX: Is this what we actually want?
-        "setup"                 => gen_then_fwd(&meta, args, "setup",   true,  "Setup"),
+        "setup"                 => setup(&meta, args),
         "test" | "t"            => gen_then_fwd(&meta, args, "test",    false, "Testing"),
         "update"                => gen_then_fwd(&meta, args, "update",  false, "Updating"),
 
@@ -131,8 +131,32 @@ impl Args {
     }
 }
 
+fn check(meta: &ContainerToml, args: std::env::ArgsOs) {
+    gen_then_fwd(&meta, args, "check", true, "Checking");
+    Command::new("cargo").arg("check").status0().or_die();
+}
+
+fn fetch(meta: &ContainerToml, args: std::env::ArgsOs) {
+    gen_then_fwd(&meta, args, "fetch", true, "Fetching");
+    Command::new("cargo").arg("fetch").status0().or_die();
+}
+
+fn setup(meta: &ContainerToml, args: std::env::ArgsOs) {
+    gen_then_fwd(&meta, args, "setup", true, "Setup");
+    if cfg!(target_os = "linux") {
+        if Path::new(".container/scripts/setup/linux.sh").exists() {
+            Command::new("sudo").arg("sh").arg(".container/scripts/setup/linux.sh").status0().or_die();
+        }
+    } else if cfg!(target_os = "macos") {
+        if Path::new(".container/scripts/setup/macos.sh").exists() {
+            Command::new("sudo").arg("sh").arg(".container/scripts/setup/macos.sh").status0().or_die();
+        }
+    }
+}
+
 fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, command: &str, ok_none: bool, verbing: &str) {
     let args = Args::from(args);
+    std::fs::remove_dir_all(".container/scripts/setup").unwrap_or_else(|err| fatal!("unable to remove .container/scripts/setup: {}", err));
     generate::dot_container(meta);
     generate::workspace_toml(meta);
     local_install(meta);
