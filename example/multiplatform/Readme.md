@@ -11,6 +11,7 @@ displaying a "dialog".
 cargo install --path .
 
 cd example\multiplatform
+cargo container setup
 cargo container build
 cargo container test
 
