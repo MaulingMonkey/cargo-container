@@ -15,6 +15,7 @@ readme          = "Readme.md"
 description     = "package rlibs in several containing frontends"
 keywords        = ["cargo", "package"]
 categories      = ["development-tools::cargo-plugins"]
+exclude         = [".cargo", ".vscode"]
 
 [[bin]]
 name            = "cargo-container"
