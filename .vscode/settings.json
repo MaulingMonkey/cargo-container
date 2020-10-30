@@ -14,5 +14,6 @@
         "example/multiplatform/target/wasm32-unknown-unknown/{debug,release}/*/{.gitignore,package.json}":        true,
         //"target/{debug,release}/*/*":                                                       true,
         //"target/*/{debug,release}/*/*":                                                     true,
-    }
+    },
+    "terminal.integrated.cwd": "${workspaceFolder}/example/multiplatform"
 }
