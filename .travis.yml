@@ -9,9 +9,6 @@ matrix:
     - rust: 1.47.0
     - rust: beta
     - rust: nightly
-before_install:
-  - sudo apt-get update
-  - sudo apt-get -y install libssl-dev
 script:
   - cargo build --release
   - export PATH=$(pwd)/target/release:$PATH
