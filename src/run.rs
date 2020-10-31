@@ -181,19 +181,19 @@ fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, command: &str, ok_
                         Ok(_) => {},
                     }
                     let line = line.trim_end_matches("\n").trim_end_matches("\r");
-                    if let Some(cc) = unpre(line, "cargo-container:") {
-                        if let Some(sudo) = unpre(cc, "sudo=") {
+                    if let Some(cc) = line.strip_prefix("cargo-container:") {
+                        if let Some(sudo) = cc.strip_prefix("sudo=") {
                             if prev_sudo_len == sudos.len() {
                                 sudos.push(format!("{} requested by {} {}", if cfg!(windows) { "::" } else { "#" }, tool, command));
                             }
                             sudos.push(sudo.into());
-                        } else if let Some(pkg) = unpre(cc, "apt-get-install=") {
+                        } else if let Some(pkg) = cc.strip_prefix("apt-get-install=") {
                             apt_packages.insert(String::from(pkg));
-                        } else if let Some(msg) = unpre(cc, "error=") {
+                        } else if let Some(msg) = cc.strip_prefix("error=") {
                             error!(code: tool, "{}", msg);
-                        } else if let Some(msg) = unpre(cc, "warning=") {
+                        } else if let Some(msg) = cc.strip_prefix("warning=") {
                             warning!(code: tool, "{}", msg);
-                        } else if let Some(msg) = unpre(cc, "info=") {
+                        } else if let Some(msg) = cc.strip_prefix("info=") {
                             info!(code: tool, "{}", msg);
                         } else {
                             warning!("unrecognized directive: {:?}", line);
@@ -385,14 +385,6 @@ fn local_install(meta: &ContainerToml) {
         OsStr::new("--no-path-warning"),
         //OsStr::new("--root"), meta.root_directory().join(".container").as_os_str(),
     ].into_iter()).unwrap_or_else(|err| fatal!("cargo-local-install failed: {}", err));
-}
-
-fn unpre<'s>(s: &'s str, pre: &str) -> Option<&'s str> {
-    if s.starts_with(pre) {
-        Some(&s[pre.len()..])
-    } else {
-        None
-    }
 }
 
 fn is_comment(line: &str) -> bool {
