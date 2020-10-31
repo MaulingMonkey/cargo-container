@@ -7,7 +7,7 @@ publish         = false
 edition         = "2018"
 
 [lib]
-path            = "common.rs"
+path            = "src/_common.rs"
 
 [dependencies]
 cargo-local-install = "0.1.9"
