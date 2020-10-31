@@ -183,7 +183,7 @@ fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, command: &str, ok_
                     let line = line.trim_end_matches("\n").trim_end_matches("\r");
                     if let Some(cc) = unpre(line, "cargo-container:") {
                         if let Some(sudo) = unpre(cc, "sudo=") {
-                            if prev_sudo_len == sudo.len() {
+                            if prev_sudo_len == sudos.len() {
                                 sudos.push(format!("{} requested by {} {}", if cfg!(windows) { "::" } else { "#" }, tool, command));
                             }
                             sudos.push(sudo.into());
@@ -254,7 +254,7 @@ fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, command: &str, ok_
             for line in sudos.iter() {
                 if is_comment(line) {
                     //eprintln!("    \u{001B}[36;1m{}\u{001B}[0m", line); // green
-                    eprintln!("    \u{001B}[90;1m{}\u{001B}[0m", line); // grey
+                    eprintln!("    \u{001B}[90m{}\u{001B}[0m", line); // grey
                 } else {
                     eprintln!("    {}", line);
                 }
@@ -280,17 +280,82 @@ fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, command: &str, ok_
             }
         });
 
-        if allow_sudo {
+        if !allow_sudo {
+            status!("Skipping", "admin tasks");
+        } else {
+            std::fs::create_dir_all(".container/scripts").unwrap_or_else(|err| fatal!("unable to create directory .container/scripts: {}", err));
             if cfg!(windows) {
-                #[cfg(windows)] {
-                    // https://docs.rs/winapi/0.3.8/winapi/um/shellapi/fn.ShellExecuteExW.html
-                    // https://docs.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shellexecuteexw
-                    //https://docs.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-shellexecuteinfoa
+                let mut script = String::new();
+                // setlocal? pushd? ...?
+                for line in sudos.iter() {
+                    if is_comment(line) { continue }
+                    writeln!(&mut script, "@echo on").unwrap();
+                    writeln!(&mut script, "{}", line).unwrap();
+                    writeln!(&mut script, "@if ERRORLEVEL 1 exit /b %ERRORLEVEL%").unwrap();
+                }
+                writeln!(&mut script, "pause").unwrap();
+                let script_path = PathBuf::from(format!(".container/scripts/sudo-{}.cmd", std::process::id()));
+                std::fs::write(&script_path, script).unwrap_or_else(|err| fatal!("unable to write {}: {}", script_path.display(), err));
 
-                    // https://docs.rs/winapi/0.3.8/winapi/um/shellapi/fn.ShellExecuteW.html
+                let mut params = OsString::from("/C \"call \"");
+                params.push(script_path.as_os_str());
+                params.push("\"\"\0");
+
+                #[cfg(windows)] {
+                    use winapi::um::errhandlingapi::GetLastError;
+                    use winapi::um::handleapi::CloseHandle;
+                    use winapi::um::shellapi::{ShellExecuteExW, SHELLEXECUTEINFOW, SEE_MASK_NOCLOSEPROCESS};
+                    use winapi::um::synchapi::WaitForSingleObject;
+                    use winapi::um::winbase::{INFINITE, WAIT_OBJECT_0};
+                    use winapi::um::winuser::SW_HIDE;
+
+                    use std::convert::TryInto;
+                    use std::os::windows::ffi::OsStrExt;
+                    use std::ptr::null_mut;
+
+                    let params = params.encode_wide().collect::<Vec<_>>();
 
                     // CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE)
+
+                    // Don't use GetConsoleWindow here.  While it "works", when combined with VS Code,
+                    // this results in a UAC prompt hiding in the background.  By using null instead,
+                    // the UAC prompt comes nicely to the front where we can actually accept it.
+                    let hwnd = std::ptr::null_mut();
+
+                    let mut sei = SHELLEXECUTEINFOW {
+                        cbSize:         std::mem::size_of::<SHELLEXECUTEINFOW>().try_into().unwrap(),
+                        fMask:          SEE_MASK_NOCLOSEPROCESS,
+                        hwnd,
+                        lpVerb:         wchar::wch_c!("runas").as_ptr(), // "Launches an application as Administrator. User Account Control (UAC) will prompt the user for consent to run the application ..."
+                        lpFile:         wchar::wch_c!("cmd.exe").as_ptr(),
+                        lpParameters:   params.as_ptr(),
+                        lpDirectory:    null_mut(), // "... If this value is NULL, the current working directory is used."
+                        nShow:          SW_HIDE,
+                        hInstApp:       null_mut(),
+                        lpIDList:       null_mut(),
+                        lpClass:        null_mut(),
+                        hkeyClass:      null_mut(),
+                        dwHotKey:       0,
+                        hMonitor:       null_mut(),
+                        hProcess:       null_mut(),
+                    };
+
+                    // https://docs.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shellexecuteexw
+                    let success = unsafe { ShellExecuteExW(&mut sei) };
+                    if success == 0 {
+                        let gle = unsafe { GetLastError() };
+                        fatal!("`cmd /C \"call \"{}\"\"` failed: ShellExecuteExW failed with GetLastError() == 0x{:08x}", script_path.display(), gle);
+                    }
+
+                    status!("Running", "admin tasks");
+                    // Sadly, we don't have any stdout.  We could setup some kind of pipe maybe...?
+                    let wait = unsafe { WaitForSingleObject(sei.hProcess, INFINITE) };
+                    assert_eq!(wait, WAIT_OBJECT_0);
+                    unsafe { CloseHandle(sei.hProcess) };
+                    status!("Finished", "admin tasks");
                 }
+
+                let _ = params;
             } else {
                 let mut script = String::new();
                 writeln!(&mut script, "set -e").unwrap();
@@ -300,7 +365,6 @@ fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, command: &str, ok_
                     writeln!(&mut script, "echo \"   \u{001B}[32;1mExecuting\u{001B}[0m {}\"", &quot[1..quot.len()-1]).unwrap();
                     writeln!(&mut script, "{}", line).unwrap();
                 }
-                std::fs::create_dir_all(".container/scripts").unwrap_or_else(|err| fatal!("unable to create directory .container/scripts: {}", err));
                 let script_path = PathBuf::from(format!(".container/scripts/sudo-{}.sh", std::process::id()));
                 std::fs::write(&script_path, script).unwrap_or_else(|err| fatal!("unable to write {}: {}", script_path.display(), err));
 
