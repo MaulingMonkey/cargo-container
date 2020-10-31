@@ -1,5 +1,6 @@
 [local-install]
 platform-console    = { path = "platforms/console" }
+platform-opendingux = { path = "platforms/opendingux" }
 platform-stdweb     = { path = "platforms/stdweb"  }
 platform-web-sys    = { path = "platforms/web-sys" }
 platform-windows    = { path = "platforms/windows" }
@@ -12,4 +13,4 @@ members = [
 
 [[build]]
 crates  = ["alpha", "beta", "delta"]
-tools   = ["platform-console", "platform-stdweb", "platform-web-sys", "platform-windows"]
+tools   = ["platform-console", "platform-opendingux", "platform-stdweb", "platform-web-sys", "platform-windows"]
