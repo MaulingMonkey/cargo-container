@@ -103,7 +103,7 @@ pub fn get() -> Map {
                 Ok(1)   => InstallState::Enabled,
                 Ok(2)   => InstallState::Disabled,
                 Ok(3)   => InstallState::Absent,
-                _       => InstallState::Unknown,
+                Ok(4)|_ => InstallState::Unknown,
             };
             o.insert(name, install_state);
         }
