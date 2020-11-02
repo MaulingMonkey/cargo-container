@@ -8,9 +8,9 @@ edition         = "2018"
 
 [dependencies]
 platform-common = { path = "../common" }
-winrt           = { path = "../opendingux-winrt", package = "platform-opendingux-winrt" }
 
 [target.'cfg(windows)'.dependencies]
+winrt           = { path = "../opendingux-winrt", package = "platform-opendingux-winrt" }
 wio             = "0.2"
 wslapi          = "0.1.2"
 wchar           = "0.6"

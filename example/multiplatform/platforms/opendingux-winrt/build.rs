@@ -1,4 +1,4 @@
-winrt::build!(
+#[cfg(windows)] winrt::build!(
     dependencies
         os
     types
@@ -7,5 +7,5 @@ winrt::build!(
 );
 
 fn main() {
-    build();
+    #[cfg(windows)] build();
 }
