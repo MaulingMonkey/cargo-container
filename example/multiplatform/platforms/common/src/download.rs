@@ -4,7 +4,7 @@ use mmrbi::*;
 
 use std::fmt::Write as _ ;
 use std::io::{Read, Write};
-use std::path::{Path};
+use std::path::Path;
 
 
 
@@ -17,15 +17,21 @@ pub struct Download {
 impl Download {
     pub fn download(&self) -> impl AsRef<[u8]> {
         status!("Downloading", "{} ({})", self.name, self.url);
-        let download = reqwest::blocking::Client::builder()
-            .user_agent("github.com/MaulingMonkey/cargo-container/example/multiplatform/platforms/common")
-            .build().or_die()
-            .get(self.url)
-            .send().or_die()
-            .bytes().or_die();
+
+        let download = if let Some(path) = self.url.strip_prefix("file:///") {
+            std::fs::read(path).unwrap_or_else(|err| fatal!("unable to read {}: {}", path, err))
+        } else {
+            reqwest::blocking::Client::builder()
+                .user_agent("github.com/MaulingMonkey/cargo-container/example/multiplatform/platforms/common")
+                .build().or_die()
+                .get(self.url)
+                .send().or_die()
+                .bytes().or_die()
+                .to_vec()
+        };
 
         let mut hasher = sha2::Sha256::new();
-        hasher.update(download.as_ref());
+        hasher.update(&download);
         let mut hash = String::new();
         for b in hasher.finalize().into_iter() {
             let _ = write!(&mut hash, "{:02X}", b);
