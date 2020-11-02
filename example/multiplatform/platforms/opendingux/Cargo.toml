@@ -8,16 +8,36 @@ edition         = "2018"
 
 [dependencies]
 platform-common = { path = "../common" }
+winrt           = { path = "../opendingux-winrt", package = "platform-opendingux-winrt" }
 
 [target.'cfg(windows)'.dependencies]
 wio             = "0.2"
+wslapi          = "0.1.2"
+wchar           = "0.6"
 
 [target.'cfg(windows)'.dependencies.winapi]
 version         = "0.3.9"
 features = [
-    "impl-default",                                                         # impl-*
-    "rpcdce", "winerror", "wtypesbase",                                     # winapi::shared
-    "combaseapi", "oaidl", "objbase", "objidlbase", "oleauto", "wbemcli",   # winapi::um
+    # impl-*
+    "impl-default",
+
+    # shared
+    "rpcdce",
+    "winerror",
+    "wtypesbase",
+
+    # um
+    "combaseapi",
+    "oaidl",
+    "objbase",
+    "objidlbase",
+    "oleauto",
+    "shellapi",
+    "wbemcli",
+    "winuser",
+
+    # winrt
+    "roapi",
 ]
 
 [[bin]]

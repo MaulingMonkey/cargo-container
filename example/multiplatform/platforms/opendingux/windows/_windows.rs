@@ -6,3 +6,5 @@
 #[cfg(windows)] mod var;
 
 pub mod features;
+
+pub use winrt::windows::*;

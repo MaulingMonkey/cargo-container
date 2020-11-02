@@ -1,0 +1,16 @@
+# https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[package]
+name            = "platform-opendingux-winrt"
+version         = "0.0.0"
+publish         = false
+edition         = "2018"
+
+[target.'cfg(windows)'.dependencies]
+winrt           = "0.7.1"
+
+[target.'cfg(windows)'.build-dependencies]
+winrt           = "0.7.1"
+
+[lib]
+path            = "opendingux-winrt.rs"

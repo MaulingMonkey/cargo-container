@@ -15,6 +15,7 @@
             "group":            { "kind": "build", "isDefault": true },
             "dependsOn": [
                 // .
+                "test",
                 "build cargo-container",
 
                 // example/multiplatform/platforms
@@ -56,6 +57,16 @@
             "command":          "rm target/* || true",
             "windows":          { "command": "rmdir /s /q target || ver>NUL" },
             "presentation":     { "clear": true, "group": "clean", "reveal": "always" },
+        },
+
+
+
+        // test
+        {
+            "label":            "test",
+            "command":          "cargo test --manifest-path Cargo.toml && cargo test --manifest-path example/multiplatform/platforms/Cargo.toml",
+            "presentation":     { "clear": true, "group": "clean", "reveal": "always" },
+            "problemMatcher":   { "base": "$rustc", "owner": "test", "source": "test" },
         },
 
 
@@ -117,9 +128,20 @@
         // doc
         {
             "label":            "doc",
+            "dependsOn":        ["doc cargo-container", "doc winrt"],
+        },
+        {
+            "label":            "doc cargo-container",
             "command":          "cargo +nightly doc --no-deps --package cargo-container",
             "presentation":     { "clear": true, "panel": "shared", "reveal": "always" },
-            "problemMatcher":   { "base": "$rustc", "owner": "cargo doc", "source": "cargo doc" },
+            "problemMatcher":   { "base": "$rustc", "owner": "doc cargo-container", "source": "doc cargo-container" },
+        },
+        {
+            "label":            "doc winrt",
+            "command":          "cargo +nightly doc --no-deps --package platform-opendingux-winrt",
+            "presentation":     { "clear": true, "panel": "shared", "reveal": "always" },
+            "problemMatcher":   { "base": "$rustc", "owner": "doc winrt", "source": "doc winrt" },
+            "options":          { "cwd": "${workspaceFolder}/example/multiplatform/platforms" },
         },
 
 
@@ -143,7 +165,15 @@
             "linux":            { "command": "xdg-open      \"${workspaceFolder}\\cargo-container\\target\\doc\\cargo_container\\index.html\"" },
             "osx":              { "command": "open          \"${workspaceFolder}\\cargo-container\\target\\doc\\cargo_container\\index.html\"" },
             "presentation":     { "clear": true, "panel": "shared", "reveal": "silent" },
-            "dependsOn":        [ "doc" ],
+            "dependsOn":        [ "doc cargo-container" ],
+        },
+        {
+            "label":            "build & open local documentation (winrt)",
+            "windows":          { "command": "start \"\"    \"${workspaceFolder}\\example\\multiplatform\\platforms\\target\\doc\\platform_opendingux_winrt\\index.html\"" },
+            "linux":            { "command": "xdg-open      \"${workspaceFolder}\\example\\multiplatform\\platforms\\target\\doc\\platform_opendingux_winrt\\index.html\"" },
+            "osx":              { "command": "open          \"${workspaceFolder}\\example\\multiplatform\\platforms\\target\\doc\\platform_opendingux_winrt\\index.html\"" },
+            "presentation":     { "clear": true, "panel": "shared", "reveal": "silent" },
+            "dependsOn":        [ "doc winrt" ],
         },
         {
             "label":            "open repository (cargo-container)",

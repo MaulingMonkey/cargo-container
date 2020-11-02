@@ -9,6 +9,16 @@ use std::io::Write;
 
 
 
+const DISTRO_ID : &'static str = "cargo-container-platforms-opendingux-1";
+const STORE_PFN : &'static str = "CanonicalGroupLimited.UbuntuonWindows_79rhkp1fndgsc";
+const PFNS : &'static [&'static str] = &[
+    "CanonicalGroupLimited.UbuntuonWindows_79rhkp1fndgsc",      // Ubuntu (16.04)
+    "CanonicalGroupLimited.Ubuntu18.04onWindows_79rhkp1fndgsc", // Ubuntu 18.04
+    "CanonicalGroupLimited.Ubuntu20.04onWindows_79rhkp1fndgsc", // Ubuntu 20.04
+];
+
+
+
 fn main() { platform_common::exec(Tool, "opendingux") }
 
 struct Tool;
@@ -18,7 +28,7 @@ impl platform_common::Tool for Tool {
         windows::features::require("VirtualMachinePlatform");               // WSL 2
 
         if cfg!(target_os = "windows") {
-            // ...
+            ensure_distro_installed();
         } else if cfg!(target_os = "linux") {
             // ...
         } else {
@@ -66,5 +76,80 @@ impl platform_common::Tool for Tool {
 
     fn test(&self, _state: &State) {
         return;
+    }
+}
+
+#[allow(deprecated)] // std::env::home_dir
+fn ensure_distro_installed() {
+    #[cfg(windows)] match wslapi::Library::new() {
+        Err(err) => fatal!("unable to check/install a distro for opendingux builds: WSL not available ({})!  You may need to install WSL, or restart if you recently did.", err),
+        Ok(wsl) if !wsl.is_distribution_registered(DISTRO_ID) => {
+            use std::ffi::OsString;
+            use std::os::windows::prelude::*;
+            use std::path::PathBuf;
+
+            // Unnecessary - or perhaps auto-invoked by winrt?
+            //use winapi::shared::winerror::SUCCEEDED;
+            //use winapi::winrt::roapi::*;
+            //let hr = unsafe { RoInitialize(RO_INIT_MULTITHREADED) };
+            //if !SUCCEEDED(hr) { fatal!("RoInitialize(RO_INIT_MULTITHREADED) failed with HRESULT 0x{:08x}", hr); }
+
+            let pm = windows::management::deployment::PackageManager::new().unwrap_or_else(|err| fatal!("unable to create PackageManager to locate WSL images: {:?}", err));
+            for pfn in PFNS.iter().copied() {
+                let user_sid = ""; // empty string = current user
+                let packages = pm.find_packages_by_user_security_id_package_family_name(user_sid, pfn).unwrap_or_else(|err| fatal!("unable to find packages to locate WSL images: {:?}", err));
+                for package in packages {
+                    let path = package.installed_path().unwrap_or_else(|err| fatal!("unable to get InstalledPath for {}: {:?}", pfn, err));
+                    let path = PathBuf::from(OsString::from_wide(path.as_wide()));
+                    let install_tar_gz = path.join("install.tar.gz");
+                    if install_tar_gz.exists() {
+                        status!("Installing", "{} from {} (this may take a minute)", DISTRO_ID, install_tar_gz.display());
+                        let home = std::env::home_dir().unwrap_or_else(|| fatal!("unable to determine home directory"));
+                        let distro_dir = home.join(format!(r".cargo\container\{}", DISTRO_ID));
+                        Command::new("wsl").arg("--import").arg(DISTRO_ID).arg(&distro_dir).arg(&install_tar_gz).status0().unwrap_or_else(|err| fatal!(
+                            "unable to import distro {} from {} into {}: {}", DISTRO_ID, install_tar_gz.display(), distro_dir.display(), err
+                        ));
+                        return;
+                    } else {
+                        warning!("missing {} (expected to exist thanks to {} but it doesn't)", install_tar_gz.display(), pfn);
+                    }
+                }
+            }
+
+            error!("{:?} not setup: no known Ubuntu WSL distributions installed to source from", DISTRO_ID);
+            eprintln!("Consider installing from one of the following sources:");
+            for pfn in PFNS.iter().copied() {
+                eprintln!("    ms-windows-store://pdp/?PFN={}", pfn);
+            }
+            eprintln!("And then re-run `cargo container setup`");
+            open_url(&format!("ms-windows-store://pdp/?PFN={}", STORE_PFN));
+        },
+        Ok(_wsl) => {},
+    }
+}
+
+fn open_url(url: &str) {
+    #[cfg(windows)] {
+        use winapi::um::errhandlingapi::GetLastError;
+        use winapi::um::shellapi::ShellExecuteW;
+        use winapi::um::winuser::SW_SHOWDEFAULT;
+
+        use std::ffi::OsString;
+        use std::os::windows::ffi::OsStrExt;
+        use std::ptr::null_mut;
+
+        // https://docs.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shellexecutew
+        let success = unsafe { ShellExecuteW(
+            null_mut(),                     // hwnd
+            wchar::wch_c!("open").as_ptr(), // operation
+            OsString::from(url).encode_wide().chain(Some(0)).collect::<Vec<_>>().as_ptr(), // "file" (url)
+            null_mut(),                     // parameters
+            null_mut(),                     // directory
+            SW_SHOWDEFAULT,                 // show
+        )} as usize > 32; // "If the function succeeds, it returns a value greater than 32."
+        if !success {
+            let gle = unsafe { GetLastError() };
+            fatal!("ShellExecuteW(0, \"open\", store_url, ...) failed with GetLastError() == 0x{:08x}", gle);
+        }
     }
 }
