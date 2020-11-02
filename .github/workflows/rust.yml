@@ -50,6 +50,7 @@ jobs:
         try { wsl --list } catch {}
         try { wslconfig /list } catch {}
         Get-AppxPackage -Name *Ubuntu*
+        reg query HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Lxss /s
         rustc -V
         cargo -V
     - name: Test CLI

@@ -8,6 +8,7 @@ install:
   - set RUST_BACKTRACE=1
   - wsl --list || ver >NUL 2>NUL
   - wslconfig /list || ver >NUL 2>NUL
+  - reg query HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Lxss /s
   - powershell Get-AppxPackage -Name *Ubuntu*
   - rustc -V
   - cargo -V
