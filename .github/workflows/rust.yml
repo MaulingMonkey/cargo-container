@@ -1,4 +1,4 @@
-name: rust
+name: Ubuntu Latest
 
 on:
   push:
