@@ -1,1 +1,1 @@
-#[cfg(windows)] include!(concat!(env!("OUT_DIR"), "/winrt.rs"));
+#[cfg(windows)] winrt::include_bindings!();
