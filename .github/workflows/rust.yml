@@ -15,15 +15,21 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Test CLI
-      run: cargo test --verbose
-    - name: Build/Setup CLI
-      run: |
-        cargo build --release --verbose
-        export PATH=$(pwd)/target/release:$PATH
-        cd example/multiplatform
+      run: cargo test
+    - name: Build CLI
+      run: cargo build --release
     - name: Example Multiplatform Setup
-      run: cargo container setup
+      run: |
+        PATH=$(pwd)/target/release:$PATH
+        cd example/multiplatform
+        cargo container setup
     - name: Example Multiplatform Build
-      run: cargo container build --config debug --config release
+      run: |
+        PATH=$(pwd)/target/release:$PATH
+        cd example/multiplatform
+        cargo container build --config debug --config release
     - name: Example Multiplatform Test
-      run: cargo container test  --config debug --config release
+      run: |
+        PATH=$(pwd)/target/release:$PATH
+        cd example/multiplatform
+        cargo container test  --config debug --config release
