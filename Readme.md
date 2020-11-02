@@ -5,7 +5,8 @@ Wrap vanilla cargo rlibs/packages in generated "containers" for various ends.
 [![GitHub](https://img.shields.io/github/stars/MaulingMonkey/cargo-container.svg?label=GitHub&style=social)](https://github.com/MaulingMonkey/cargo-container)
 [![crates.io](https://img.shields.io/crates/v/cargo-container.svg)](https://crates.io/crates/cargo-container)
 [![License](https://img.shields.io/crates/l/cargo_container.svg)](https://github.com/MaulingMonkey/cargo-container)
-[![Build Status](https://travis-ci.com/MaulingMonkey/cargo-container.svg?branch=master)](https://travis-ci.com/MaulingMonkey/cargo-container)
+![Build Status](https://img.shields.io/github/workflow/status/MaulingMonkey/cargo-container/rust)
+<!-- [![Build Status](https://travis-ci.com/MaulingMonkey/cargo-container.svg?branch=master)](https://travis-ci.com/MaulingMonkey/cargo-container) -->
 <!-- [![dependency status](https://deps.rs/repo/github/MaulingMonkey/cargo-container/status.svg)](https://deps.rs/repo/github/MaulingMonkey/cargo-container) -->
 
 <h2 name="quickstart">Quickstart</h2>
