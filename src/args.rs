@@ -9,6 +9,7 @@ pub struct Args {
     pub crates:     BTreeSet<String>,
     pub tools:      BTreeSet<String>,
     pub allow_sudo: Option<bool>,
+    pub skip_install: bool,
 }
 
 impl Args {
@@ -23,6 +24,7 @@ impl Args {
                 flag @ "--tool"     => add_arg(&mut o.tools,    flag, "tool",           &mut args),
                 "--allow-sudo"      => o.allow_sudo = Some(true),
                 "--deny-sudo"       => o.allow_sudo = Some(false),
+                "--skip-install"    => o.skip_install = true,
 
                 flag if flag.starts_with("-") => fatal!("unrecognized flag: {}", flag),
                 other => fatal!("unrecognized argument: {}", other),

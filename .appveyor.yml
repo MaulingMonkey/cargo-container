@@ -17,5 +17,5 @@ test_script:
   - cargo test
   - cd example/multiplatform
   - cargo container setup
-  - cargo container build --config debug --config release
-  - cargo container test  --config debug --config release
+  - cargo container build --config debug --config release --skip-install
+  - cargo container test  --config debug --config release --skip-install

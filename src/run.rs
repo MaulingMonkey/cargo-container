@@ -123,7 +123,7 @@ fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, command: &str, ok_
     std::fs::remove_dir_all(".container/scripts/setup").unwrap_or_else(|err| if err.kind() != io::ErrorKind::NotFound { fatal!("unable to remove .container/scripts/setup: {}", err) });
     generate::dot_container(meta);
     generate::workspace_toml(meta);
-    local_install(meta);
+    local_install(meta, &args);
     generate::crates(meta);
 
     let path = prepend_paths(Some(Path::new("bin").canonicalize().unwrap().cleanup()));
@@ -380,7 +380,8 @@ fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, command: &str, ok_
     }
 }
 
-fn local_install(meta: &ContainerToml) {
+fn local_install(meta: &ContainerToml, args: &Args) {
+    if args.skip_install { return }
     if meta.local_install.is_empty() { return }
     cargo_local_install::run_from_strs(vec![
         OsStr::new("--no-path-warning"),

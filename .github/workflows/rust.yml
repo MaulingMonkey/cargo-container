@@ -33,12 +33,12 @@ jobs:
       run: |
         PATH=$(pwd)/target/release:$PATH
         cd example/multiplatform
-        cargo container build --config debug --config release
+        cargo container build --config debug --config release --skip-install
     - name: Example Multiplatform Test
       run: |
         PATH=$(pwd)/target/release:$PATH
         cd example/multiplatform
-        cargo container test  --config debug --config release
+        cargo container test  --config debug --config release --skip-install
   build-windows:
     name: Windows 2019 Server
     runs-on: windows-2019
@@ -63,9 +63,9 @@ jobs:
       run: |
         $env:PATH = (Get-Location).Path + ";" + $env:PATH
         cd example/multiplatform
-        cargo container build --config debug --config release
+        cargo container build --config debug --config release --skip-install
     - name: Example Multiplatform Test
       run: |
         $env:PATH = (Get-Location).Path + ";" + $env:PATH
         cd example/multiplatform
-        cargo container test  --config debug --config release
+        cargo container test  --config debug --config release --skip-install
