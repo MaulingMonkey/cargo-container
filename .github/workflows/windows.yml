@@ -1,0 +1,36 @@
+name: Windows Server 2019
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: windows-2019
+    steps:
+    - uses: actions/checkout@v2
+    - name: Test CLI
+      run: cargo test
+    - name: Build CLI
+      run: cargo build --release
+    - name: Example Multiplatform Setup
+      run: |
+        cd
+        set PATH=../../target/release;%PATH%
+        cd example/multiplatform
+        cargo container setup
+    - name: Example Multiplatform Build
+      run: |
+        set PATH=../../target/release;%PATH%
+        cd example/multiplatform
+        cargo container build --config debug --config release
+    - name: Example Multiplatform Test
+      run: |
+        set PATH=../../target/release;%PATH%
+        cd example/multiplatform
+        cargo container test  --config debug --config release
