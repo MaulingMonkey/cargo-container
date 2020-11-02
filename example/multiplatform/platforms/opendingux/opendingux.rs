@@ -1,3 +1,6 @@
+#![cfg_attr(unix, allow(dead_code))]
+#![cfg_attr(unix, allow(unused_imports))]
+
 #[path="windows/_windows.rs"] mod windows;
 
 use platform_common::*;
