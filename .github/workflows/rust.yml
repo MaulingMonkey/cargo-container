@@ -48,6 +48,8 @@ jobs:
       run: |
         cd
         try { wsl --list } catch {}
+        try { wslconfig /list } catch {}
+        Get-AppxPackage -Name *Ubuntu*
         rustc -V
         cargo -V
     - name: Test CLI

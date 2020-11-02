@@ -7,6 +7,8 @@ install:
   - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
   - set RUST_BACKTRACE=1
   - wsl --list || ver >NUL 2>NUL
+  - wslconfig /list || ver >NUL 2>NUL
+  - powershell Get-AppxPackage -Name *Ubuntu*
   - rustc -V
   - cargo -V
 
