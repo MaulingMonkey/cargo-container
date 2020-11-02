@@ -15,7 +15,6 @@ use std::path::{Component, Path, PathBuf, Prefix};
 
 
 const DISTRO_ID : &'static str = "cargo-container-platforms-opendingux-1";
-const STORE_PFN : &'static str = "CanonicalGroupLimited.UbuntuonWindows_79rhkp1fndgsc";
 const PFNS : &'static [&'static str] = &[
     "CanonicalGroupLimited.UbuntuonWindows_79rhkp1fndgsc",      // Ubuntu (16.04)
     "CanonicalGroupLimited.Ubuntu18.04onWindows_79rhkp1fndgsc", // Ubuntu 18.04
@@ -26,8 +25,31 @@ const GCW0_TOOLCHAIN_ENTRIES : usize = 30591 + 2160; // files + dirs for tar pro
 const GCW0_TOOLCHAIN : Download = Download {
     name:   "opendingux gcw0 toolchain (2014-08-20)",
     url:    "http://www.gcw-zero.com/files/opendingux-gcw0-toolchain.2014-08-20.tar.bz2",
+    //url:    concat!("file:///C:/Users/", env!("USERNAME"), "/Downloads/opendingux-gcw0-toolchain.2014-08-20.tar.bz2"),
     sha256: "3632C85F48879108D4349570DED60D87D7A324850B81D683D031E4EE112BAAA0",
 };
+
+const UBUNTU_PFN : &'static str = "CanonicalGroupLimited.UbuntuonWindows_79rhkp1fndgsc";
+const UBUNTU_APPX : Download = Download {
+    name:   "ubuntu 16.04",
+    url:    "https://aka.ms/wsl-ubuntu-1604",
+    //url:    concat!("file:///C:/Users/", env!("USERNAME"), "/Downloads/Ubuntu_1604.2019.523.0_x64.appx"),
+    sha256: "55782021E04F52D071814FDAD02CD37448C7A49F2EF5A66899F3D5BC7D79859F",
+};
+
+fn distros() -> impl Iterator<Item = &'static str> {
+    if env::has_var("CI") {&[
+        DISTRO_ID,
+        // For CI, consider just using whatever VMs are already installed, if any.
+        "Ubuntu",
+        "Ubuntu-16.04", // Appveyor
+        "Ubuntu-18.04", // Appveyor
+        "Ubuntu-20.04", // Appveyor
+        "openSUSE-42",  // Appveyor
+    ][..]} else {&[
+        DISTRO_ID,
+    ][..]}.iter().copied()
+}
 
 
 
@@ -45,9 +67,9 @@ impl platform_common::Tool for Tool {
                     "unable to check/install a distro for opendingux builds: WSL not available ({})!  You may need to install WSL, or restart if you recently did.",
                     err
                 ));
-                wsl_ensure_distro_installed(&wsl);
-                wsl_ensure_root_stuff(&wsl);
-                wsl_ensure_gcw0_installed(&wsl);
+                let distro = wsl_ensure_distro_installed(&wsl);
+                wsl_ensure_root_stuff(&wsl, distro);
+                wsl_ensure_gcw0_installed(&wsl, distro);
             }
         } else if cfg!(target_os = "linux") {
             // ...
@@ -100,11 +122,8 @@ impl platform_common::Tool for Tool {
 }
 
 #[cfg(windows)]
-#[allow(deprecated)] // std::env::home_dir
-fn wsl_ensure_distro_installed(wsl: &wslapi::Library) {
-    if wsl.is_distribution_registered(DISTRO_ID) { return }
-
-    use std::os::windows::prelude::*;
+fn wsl_ensure_distro_installed(wsl: &wslapi::Library) -> &'static str {
+    if let Some(distro) = distros().find(|d| wsl.is_distribution_registered(d)) { return distro; }
 
     // Unnecessary - or perhaps auto-invoked by winrt?
     //use winapi::shared::winerror::SUCCEEDED;
@@ -114,39 +133,65 @@ fn wsl_ensure_distro_installed(wsl: &wslapi::Library) {
 
     let pm = windows::management::deployment::PackageManager::new().unwrap_or_else(|err| fatal!("unable to create PackageManager to locate WSL images: {:?}", err));
     for pfn in PFNS.iter().copied() {
-        let user_sid = ""; // empty string = current user
-        let packages = pm.find_packages_by_user_security_id_package_family_name(user_sid, pfn).unwrap_or_else(|err| fatal!("unable to find packages to locate WSL images: {:?}", err));
-        for package in packages {
-            let loc = package.installed_location().unwrap_or_else(|err| fatal!("unable to get Package({:?})->InstalledLocation: {:?}", pfn, err));
-            let path = loc.path().unwrap_or_else(|err| fatal!("unable to get Package({:?})->InstalledLocation->Path: {:?}", pfn, err));
-            let path = PathBuf::from(OsString::from_wide(path.as_wide()));
-            let install_tar_gz = path.join("install.tar.gz");
-            if install_tar_gz.exists() {
-                status!("Installing", "{} from {} (this may take a minute)", DISTRO_ID, install_tar_gz.display());
-                let home = std::env::home_dir().unwrap_or_else(|| fatal!("unable to determine home directory"));
-                let distro_dir = home.join(format!(r".cargo\container\{}", DISTRO_ID));
-                Command::new("wsl").arg("--import").arg(DISTRO_ID).arg(&distro_dir).arg(&install_tar_gz).status0().unwrap_or_else(|err| fatal!(
-                    "unable to import distro {} from {} into {}: {}", DISTRO_ID, install_tar_gz.display(), distro_dir.display(), err
-                ));
-                if !wsl.is_distribution_registered(DISTRO_ID) {
-                    fatal!("distribution {} not registered despite supposedly importing successfully", DISTRO_ID);
-                }
-                return;
-            } else {
-                warning!("missing {} (expected to exist thanks to {} but it doesn't)", install_tar_gz.display(), pfn);
-            }
-        }
+        if wsl_install_distro_from_pfn(wsl, &pm, pfn) { return DISTRO_ID; }
     }
 
-    // XXX: Strongly consider auto-installing `UBUNTU_APPX` instead of going through the store
-    error!("{:?} not setup: no known Ubuntu WSL distributions installed to source from", DISTRO_ID);
+    let tmp_appx_path = std::env::temp_dir().join(format!("ccod-ubuntu.appx"));
+    std::fs::write(&tmp_appx_path, UBUNTU_APPX.download()).unwrap_or_else(|err| fatal!("unable to write to {}: {}", tmp_appx_path.display(), err));
+
+    //#[cfg(nope)] { // XXX: figure out how the heck to create an IIterable for add_package_async
+    //    let tmp_appx_uri = urlify_path(&tmp_appx_path);
+    //    let tmp_appx_uri = Uri::create_uri(tmp_appx_uri.to_string_lossy().into()).unwrap_or_else(|err| fatal!("unable to create URI from {}: {:?}", tmp_appx_uri.to_string_lossy(), err));
+    //    let op = pm.add_package_async(tmp_appx_uri, Vec::new(), DeploymentOptions::None).unwrap_or_else(|err| fatal!("unable to packages->AddPackageAsync(...): {:?}", err));
+    //    op.set_completed(AsyncOperationWithProgressCompletedHandler::new(|_aowp, _status| {
+    //        panic!(); // XXX
+    //    })).unwrap_or_else(|err| fatal!("unable to add_appx_op->SetCompleted(...): {:?}", err));
+    //}
+
+    status!("Installing", "{} ({})", UBUNTU_APPX.name, UBUNTU_APPX.url);
+    Command::new("powershell").args(&["Add-AppxPackage", "-Path"]).arg(&tmp_appx_path).status0().or_die();
+    if wsl_install_distro_from_pfn(wsl, &pm, UBUNTU_PFN) { return DISTRO_ID; }
+
+    error!("unable to install {}", DISTRO_ID);
     eprintln!("Consider installing from one of the following sources:");
     for pfn in PFNS.iter().copied() {
         eprintln!("    ms-windows-store://pdp/?PFN={}", pfn);
     }
     eprintln!("And then re-run `cargo container setup`");
-    open_url(&format!("ms-windows-store://pdp/?PFN={}", STORE_PFN));
+    open_url(&format!("ms-windows-store://pdp/?PFN={}", UBUNTU_PFN));
     std::process::exit(1);
+}
+
+#[cfg(windows)]
+#[allow(deprecated)] // std::env::home_dir
+fn wsl_install_distro_from_pfn(wsl: &wslapi::Library, pm: &windows::management::deployment::PackageManager, pfn: &str) -> bool {
+    use std::os::windows::prelude::*;
+
+    let user_sid = ""; // empty string = current user
+    let packages = pm.find_packages_by_user_security_id_package_family_name(user_sid, pfn).unwrap_or_else(|err| fatal!("unable to find packages to locate WSL images: {:?}", err));
+    for package in packages {
+        let loc = package.installed_location().unwrap_or_else(|err| fatal!("unable to get Package({:?})->InstalledLocation: {:?}", pfn, err));
+        let path = loc.path().unwrap_or_else(|err| fatal!("unable to get Package({:?})->InstalledLocation->Path: {:?}", pfn, err));
+        let path = PathBuf::from(OsString::from_wide(path.as_wide()));
+        let install_tar_gz = path.join("install.tar.gz");
+        if install_tar_gz.exists() {
+            status!("Installing", "{} from {} (this may take a minute)", DISTRO_ID, install_tar_gz.display());
+            let home = std::env::home_dir().unwrap_or_else(|| fatal!("unable to determine home directory"));
+            let distro_dir = home.join(format!(r".cargo\container\{}", DISTRO_ID));
+            // --import requires build 18305 https://docs.microsoft.com/en-us/windows/wsl/release-notes#build-18305
+            Command::new("wsl").arg("--import").arg(DISTRO_ID).arg(&distro_dir).arg(&install_tar_gz).status0().unwrap_or_else(|err| fatal!(
+                "unable to import distro {} from {} into {}: {}", DISTRO_ID, install_tar_gz.display(), distro_dir.display(), err
+            ));
+            let _ = wsl.register_distribution(DISTRO_ID, ""); // wslapi caches distro information which wsl --import bypassed, try and refresh
+            if !wsl.is_distribution_registered(DISTRO_ID) {
+                warning!("wslapi doesn't recognize {} as registered despite supposedly importing successfully", DISTRO_ID);
+            }
+            return true;
+        } else {
+            warning!("missing {} (expected to exist thanks to {} but it doesn't)", install_tar_gz.display(), pfn);
+        }
+    }
+    false
 }
 
 #[cfg(windows)]
@@ -173,22 +218,22 @@ fn open_url(url: &str) {
     }
 }
 
-#[cfg(windows)] fn wsl_root() -> Command {
+#[cfg(windows)] fn wsl_root(distro: &str) -> Command {
     let mut c = Command::new("wsl");
-    c.arg("--distribution").arg(DISTRO_ID).arg("--user").arg("root").arg("--");
+    c.arg("--distribution").arg(distro).arg("--user").arg("root").arg("--");
     c
 }
 
-#[cfg(windows)] fn wsl_od() -> Command {
+#[cfg(windows)] fn wsl_od(distro: &str) -> Command {
     let mut c = Command::new("wsl");
-    c.arg("--distribution").arg(DISTRO_ID).arg("--user").arg("opendingux").arg("--");
+    c.arg("--distribution").arg(distro).arg("--user").arg("opendingux").arg("--");
     c
 }
 
 #[cfg(windows)]
-fn wsl_ensure_root_stuff(wsl: &wslapi::Library) {
+fn wsl_ensure_root_stuff(wsl: &wslapi::Library, distro: &str) {
     // Create "opendingux" user
-    wsl_root().args(&["adduser", "--disabled-password", "--gecos", "User for building opendingux packages", "--system", "--shell", "/bin/bash", "opendingux"]).io0(|line|{
+    wsl_root(distro).args(&["adduser", "--disabled-password", "--gecos", "User for building opendingux packages", "--system", "--shell", "/bin/bash", "opendingux"]).io0(|line|{
         if line.trim_end().ends_with(" already exists. Exiting.") { return } // ignore spam if user already exists
         println!("{}", line);
     }, |line| {
@@ -200,25 +245,28 @@ fn wsl_ensure_root_stuff(wsl: &wslapi::Library) {
     use std::sync::{Arc, atomic::{AtomicU32, Ordering::SeqCst}};
     let uid = Arc::new(AtomicU32::new(0));
     let uid2 = uid.clone();
-    wsl_od().args(&["id", "-u"]).io0(move |id| uid2.store(id.parse().unwrap_or(0), SeqCst), |l| error!("failed to get user id: {}", l)).or_die();
-    let cfg = wsl.get_distribution_configuration(DISTRO_ID).or_die();
-    wsl.configure_distribution(DISTRO_ID, uid.load(SeqCst), cfg.flags).or_die();
+    wsl_od(distro).args(&["id", "-u"]).io0(move |id| uid2.store(id.parse().unwrap_or(0), SeqCst), |l| error!("failed to get user id: {}", l)).or_die();
+    if let Ok(cfg) = wsl.get_distribution_configuration(distro) {
+        wsl.configure_distribution(distro, uid.load(SeqCst), cfg.flags).or_die();
+    } else {
+        warning!("unable to set default user to \"opendingux\"");
+    }
 
     // Update/install apt packages
     if cfg!(nope) {
         status!("Updating", "apt sources and packages");
-        wsl_root().args(&["apt-get", "-y", "update"]).status0().or_die();
-        //wsl_root().args(&["apt-get", "-y", "install", "..."]).status0().or_die();
+        wsl_root(distro).args(&["apt-get", "-y", "update"]).status0().or_die();
+        //wsl_root(distro).args(&["apt-get", "-y", "install", "..."]).status0().or_die();
     }
 }
 
 #[cfg(windows)]
-fn wsl_ensure_gcw0_installed(_wsl: &wslapi::Library) {
+fn wsl_ensure_gcw0_installed(_wsl: &wslapi::Library, distro: &str) {
     use std::sync::{Arc, atomic::{AtomicBool, AtomicUsize, Ordering::{SeqCst, Relaxed}}};
 
     let hash_ok = Arc::new(AtomicBool::new(false));
     let hash_ok_io = hash_ok.clone();
-    wsl_root().args(&["cat", "/opt/gcw0-toolchain/sha256"]).io(move |sha256| {
+    wsl_root(distro).args(&["cat", "/opt/gcw0-toolchain/sha256"]).io(move |sha256| {
         let sha256 = sha256.trim();
         hash_ok_io.store(sha256 == GCW0_TOOLCHAIN.sha256, SeqCst);
     }, |_| {
@@ -226,7 +274,7 @@ fn wsl_ensure_gcw0_installed(_wsl: &wslapi::Library) {
     }).or_die();
     if hash_ok.load(SeqCst) { return } // already installed
 
-    wsl_root().args(&["rm", "/opt/gcw0-toolchain/sha256"]).io(|_|{}, |_|{}).or_die();
+    wsl_root(distro).args(&["rm", "/opt/gcw0-toolchain/sha256"]).io(|_|{}, |_|{}).or_die();
     let tmp_path = std::env::temp_dir().join(GCW0_TOOLCHAIN.sha256);
     std::fs::write(&tmp_path, GCW0_TOOLCHAIN.download()).unwrap_or_else(|err| fatal!("failed to write to {}: {}", tmp_path.display(), err));
     let wsl_path = wslify_path(&tmp_path);
@@ -234,7 +282,7 @@ fn wsl_ensure_gcw0_installed(_wsl: &wslapi::Library) {
     let start = std::time::Instant::now();
     let files  = AtomicUsize::new(0);
     let quanta = AtomicUsize::new(0);
-    let extract = wsl_root().args(&["tar", "jxvf"]).arg(&wsl_path).arg("-C").arg("/opt").io0(
+    let extract = wsl_root(distro).args(&["tar", "jxvf"]).arg(&wsl_path).arg("-C").arg("/opt").io0(
         move |path| {
             let files = files.fetch_add(1, Relaxed);
             let elapsed = std::time::Instant::now() - start;
@@ -252,7 +300,7 @@ fn wsl_ensure_gcw0_installed(_wsl: &wslapi::Library) {
     eprint!("\u{001B}[0J");
     status!("Extracted", "/opt/gcw0-toolchain/");
     extract.or_die();
-    wsl_root().args(&["echo", GCW0_TOOLCHAIN.sha256, ">", "/opt/gcw0-toolchain/sha256"]).status0().or_die();
+    wsl_root(distro).args(&["echo", GCW0_TOOLCHAIN.sha256, ">", "/opt/gcw0-toolchain/sha256"]).status0().or_die();
 }
 
 fn wslify_path(path: impl AsRef<Path>) -> OsString {
