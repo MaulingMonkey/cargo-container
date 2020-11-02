@@ -1,14 +1,6 @@
 language: rust
 rust:
-  - 1.47.0
   - stable
-  - beta
-  - nightly
-matrix:
-  allow_failures:
-    - rust: 1.47.0
-    - rust: beta
-    - rust: nightly
 script:
   - cargo build --release
   - export PATH=$(pwd)/target/release:$PATH
