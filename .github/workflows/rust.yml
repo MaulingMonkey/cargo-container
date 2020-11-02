@@ -47,7 +47,7 @@ jobs:
     - name: Info
       run: |
         cd
-        wsl --list
+        try { wsl --list } catch {}
         rustc -V
         cargo -V
     - name: Test CLI
