@@ -199,7 +199,8 @@ fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, command: &str, ok_
                             warning!("unrecognized directive: {:?}", line);
                         }
                     } else {
-                        println!("{}", line); // ...ignore?
+                        // ...ignore?
+                        println!("{}\r", line); // XXX: this `\r` shouldn't be necessary, but there's fuckery going on
                     }
                 }
 
