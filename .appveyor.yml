@@ -12,6 +12,7 @@ install:
   - powershell Get-AppxPackage -Name *Ubuntu*
   - rustc -V
   - cargo -V
+  - ver
 
 build_script:
   - cargo build --release

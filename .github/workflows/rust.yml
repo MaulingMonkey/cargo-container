@@ -53,6 +53,7 @@ jobs:
         reg query HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Lxss /s
         rustc -V
         cargo -V
+        cmd /C ver
     - name: Test CLI
       run: cargo test
     - name: Build CLI
