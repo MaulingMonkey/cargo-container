@@ -117,7 +117,8 @@ fn wsl_ensure_distro_installed(wsl: &wslapi::Library) {
         let user_sid = ""; // empty string = current user
         let packages = pm.find_packages_by_user_security_id_package_family_name(user_sid, pfn).unwrap_or_else(|err| fatal!("unable to find packages to locate WSL images: {:?}", err));
         for package in packages {
-            let path = package.installed_path().unwrap_or_else(|err| fatal!("unable to get InstalledPath for {}: {:?}", pfn, err));
+            let loc = package.installed_location().unwrap_or_else(|err| fatal!("unable to get Package({:?})->InstalledLocation: {:?}", pfn, err));
+            let path = loc.path().unwrap_or_else(|err| fatal!("unable to get Package({:?})->InstalledLocation->Path: {:?}", pfn, err));
             let path = PathBuf::from(OsString::from_wide(path.as_wide()));
             let install_tar_gz = path.join("install.tar.gz");
             if install_tar_gz.exists() {
