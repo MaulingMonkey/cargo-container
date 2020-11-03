@@ -2,6 +2,7 @@
     "files.exclude": {
         "**/.git/":                true,
         ".container/crates/zzz/":  true,
+        "Cargo.lock":              true, // replacing dep versions is no bueno
 
         "target/*": true,
         "example/multiplatform/platforms/target": true,
