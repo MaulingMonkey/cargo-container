@@ -68,6 +68,14 @@ pub fn workspace_toml(meta: &ContainerToml) {
         }
         writeln!(o, "]")?;
 
+        if !meta.profile.is_empty() {
+            writeln!(o)?;
+            writeln!(o, "[profile]")?;
+            for (k, v) in meta.profile.iter() {
+                writeln!(o, "{} = {}", toml::to_string(k).unwrap(), toml_util::to_string_single_line(v))?;
+            }
+        }
+
         Ok(())
     }).or_die();
 

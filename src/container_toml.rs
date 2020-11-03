@@ -94,6 +94,7 @@ pub struct Root {
     #[serde(default)]                   pub local_install:  toml::value::Table,
     #[serde(default)]                   pub workspace:      cargo::toml::Workspace,
     #[serde(default, rename = "build")] pub builds:         Vec<Build>,
+    #[serde(default)]                   pub profile:        toml::value::Table,
 }
 
 /// # Example
