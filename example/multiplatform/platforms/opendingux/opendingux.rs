@@ -208,13 +208,14 @@ fn wsl_install_distro_from_pfn(wsl: &wslapi::Library, pm: &windows::management::
                 // ourselves as a hackaround.
                 let exe = PathBuf::from(std::env::args_os().next().unwrap_or_else(|| fatal!("can't get exe name for self reinvoke")));
                 let distro_exe = distro_dir.join("odx.exe");
-                std::fs::remove_file(&distro_exe).unwrap_or_else(|err| if err.kind() != std::io::ErrorKind::NotFound { fatal!("unable to remove distro symlink exe `{}`: {}", distro_exe.display(), err) });
+                std::fs::remove_file(&distro_exe).unwrap_or_else(|err| if err.kind() != std::io::ErrorKind::NotFound { fatal!("unable to remove distro exe `{}`: {}", distro_exe.display(), err) });
                 // symlinks won't work here, but hardlinks might if on the same drive?
                 std::fs::copy(&exe, &distro_exe).unwrap_or_else(|err| fatal!("unable to copy distro exe `{}` to `{}`: {}", distro_exe.display(), exe.display(), err));
                 Command::new(&distro_exe).arg("wsl-register-distro-hack")
                     .arg(DISTRO_ID).arg(&install_tar_gz)
                     .current_dir(&distro_dir) // Does nothing in my current wslapi.dll version... but I could see other, saner versions of wslapi.dll reading it for installation locations?
                     .status0().or_die();
+                std::fs::remove_file(&distro_exe).unwrap_or_else(|err| fatal!("unable to remove distro exe `{}`: {}", distro_exe.display(), err));
             }
             let _ = wsl.register_distribution(DISTRO_ID, ""); // wslapi caches distro information which wsl --import bypassed, try and refresh
             if !wsl.is_distribution_registered(DISTRO_ID) {
