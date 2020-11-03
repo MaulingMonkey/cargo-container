@@ -54,7 +54,21 @@ fn distros() -> impl Iterator<Item = &'static str> {
 
 
 
-fn main() { platform_common::exec(Tool, "opendingux") }
+fn main() {
+    #[cfg(windows)] {
+        // shenannigans to work around WslLaunch's weird behavior
+        let mut args = std::env::args_os();
+        let _exe = args.next();
+        if args.next().map_or(false, |arg| arg == "wsl-register-distro-hack") {
+            let wsl = wslapi::Library::new().unwrap();
+            let distro = args.next().expect("distro");
+            let file   = PathBuf::from(args.next().expect("file"));
+            wsl.register_distribution(distro, file).or_die();
+            std::process::exit(0);
+        }
+    }
+    platform_common::exec(Tool, "opendingux")
+}
 
 struct Tool;
 impl platform_common::Tool for Tool {
@@ -179,10 +193,29 @@ fn wsl_install_distro_from_pfn(wsl: &wslapi::Library, pm: &windows::management::
             status!("Installing", "{} from {} (this may take a minute)", DISTRO_ID, install_tar_gz.display());
             let home = std::env::home_dir().unwrap_or_else(|| fatal!("unable to determine home directory"));
             let distro_dir = home.join(format!(r".cargo\container\{}", DISTRO_ID));
-            // --import requires build 18305 https://docs.microsoft.com/en-us/windows/wsl/release-notes#build-18305
-            Command::new("wsl").arg("--import").arg(DISTRO_ID).arg(&distro_dir).arg(&install_tar_gz).status0().unwrap_or_else(|err| fatal!(
-                "unable to import distro {} from {} into {}: {}", DISTRO_ID, install_tar_gz.display(), distro_dir.display(), err
-            ));
+
+            if cfg!(nope) {
+                // --import requires build 18305 https://docs.microsoft.com/en-us/windows/wsl/release-notes#build-18305
+                // travis and appveyor are only on build 17763
+                Command::new("wsl").arg("--import").arg(DISTRO_ID).arg(&distro_dir).arg(&install_tar_gz).status0().unwrap_or_else(|err| fatal!(
+                    "unable to import distro {} from {} into {}: {}", DISTRO_ID, install_tar_gz.display(), distro_dir.display(), err
+                ));
+            } else {
+                // WslLaunch is a troll API.  Specifically, it uses the directory of the executable to install the distribution into.
+                // Not the current directory, not the directory of argv[0] if you symlinked that, the directory of the *executable*.
+                // I'm pretty sure that was frowned upon as far back as Windows XP - generally being the program files directory
+                // instead of a per-user directory - but I digress.  Long story short, we copy ourselves into `distro_dir` and invoke
+                // ourselves as a hackaround.
+                let exe = PathBuf::from(std::env::args_os().next().unwrap_or_else(|| fatal!("can't get exe name for self reinvoke")));
+                let distro_exe = distro_dir.join("odx.exe");
+                std::fs::remove_file(&distro_exe).unwrap_or_else(|err| if err.kind() != std::io::ErrorKind::NotFound { fatal!("unable to remove distro symlink exe `{}`: {}", distro_exe.display(), err) });
+                // symlinks won't work here, but hardlinks might if on the same drive?
+                std::fs::copy(&exe, &distro_exe).unwrap_or_else(|err| fatal!("unable to copy distro exe `{}` to `{}`: {}", distro_exe.display(), exe.display(), err));
+                Command::new(&distro_exe).arg("wsl-register-distro-hack")
+                    .arg(DISTRO_ID).arg(&install_tar_gz)
+                    .current_dir(&distro_dir) // Does nothing in my current wslapi.dll version... but I could see other, saner versions of wslapi.dll reading it for installation locations?
+                    .status0().or_die();
+            }
             let _ = wsl.register_distribution(DISTRO_ID, ""); // wslapi caches distro information which wsl --import bypassed, try and refresh
             if !wsl.is_distribution_registered(DISTRO_ID) {
                 warning!("wslapi doesn't recognize {} as registered despite supposedly importing successfully", DISTRO_ID);
