@@ -17,11 +17,12 @@
                 // .
                 "test",
                 "build cargo-container",
-
+                
                 // example/multiplatform/platforms
                 "build example platforms",
-
+                
                 // example/multiplatform
+                //"unregister wsl",
                 "setup example multiplatform",
                 "build example multiplatform",
                 "test example multiplatform",
@@ -57,6 +58,14 @@
             "command":          "rm target/* || true",
             "windows":          { "command": "rmdir /s /q target || ver>NUL" },
             "presentation":     { "clear": true, "group": "clean", "reveal": "always" },
+        },
+
+
+
+        // unregister
+        {
+            "label":            "unregister wsl",
+            "windows":          { "command": "wsl --unregister cargo-container-platforms-opendingux-1 || ver >NUL 2>NUL" },
         },
 
 
