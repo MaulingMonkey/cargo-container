@@ -17,8 +17,9 @@ use std::path::{Component, Path, PathBuf, Prefix};
 const DISTRO_ID : &'static str = "cargo-container-platforms-opendingux-1";
 const PFNS : &'static [&'static str] = &[
     "CanonicalGroupLimited.UbuntuonWindows_79rhkp1fndgsc",      // Ubuntu (16.04)
-    "CanonicalGroupLimited.Ubuntu18.04onWindows_79rhkp1fndgsc", // Ubuntu 18.04
-    "CanonicalGroupLimited.Ubuntu20.04onWindows_79rhkp1fndgsc", // Ubuntu 20.04
+    "CanonicalGroupLimited.Ubuntu16.04onWindows_79rhkp1fndgsc", // Ubuntu 16.04 via https://aka.ms/wsl-ubuntu-1604
+    "CanonicalGroupLimited.Ubuntu18.04onWindows_79rhkp1fndgsc", // Ubuntu 18.04 via https://aka.ms/wsl-ubuntu-1804
+    "CanonicalGroupLimited.Ubuntu20.04onWindows_79rhkp1fndgsc", // Ubuntu 20.04 via ???
 ];
 
 const GCW0_TOOLCHAIN_ENTRIES : usize = 30591 + 2160; // files + dirs for tar progress
@@ -29,7 +30,7 @@ const GCW0_TOOLCHAIN : Download = Download {
     sha256: "3632C85F48879108D4349570DED60D87D7A324850B81D683D031E4EE112BAAA0",
 };
 
-const UBUNTU_PFN : &'static str = "CanonicalGroupLimited.UbuntuonWindows_79rhkp1fndgsc";
+const UBUNTU_PFN : &'static str = "CanonicalGroupLimited.Ubuntu16.04onWindows_79rhkp1fndgsc";
 const UBUNTU_APPX : Download = Download {
     name:   "ubuntu 16.04",
     url:    "https://aka.ms/wsl-ubuntu-1604",
@@ -58,8 +59,8 @@ fn main() { platform_common::exec(Tool, "opendingux") }
 struct Tool;
 impl platform_common::Tool for Tool {
     fn setup(&self, _state: &State) {
-        windows::features::require("Microsoft-Windows-Subsystem-Linux");    // WSL 1
-        windows::features::require("VirtualMachinePlatform");               // WSL 2
+        windows::features::require("Microsoft-Windows-Subsystem-Linux");    // WSL 1 (required)
+        //windows::features::require("VirtualMachinePlatform");             // WSL 2 (optional)
 
         if cfg!(target_os = "windows") {
             #[cfg(windows)] {
@@ -152,7 +153,7 @@ fn wsl_ensure_distro_installed(wsl: &wslapi::Library) -> &'static str {
     Command::new("powershell").args(&["Add-AppxPackage", "-Path"]).arg(&tmp_appx_path).status0().or_die();
     if wsl_install_distro_from_pfn(wsl, &pm, UBUNTU_PFN) { return DISTRO_ID; }
 
-    error!("unable to install {}", DISTRO_ID);
+    error!("unable to install {} from {}", DISTRO_ID, UBUNTU_PFN);
     eprintln!("Consider installing from one of the following sources:");
     for pfn in PFNS.iter().copied() {
         eprintln!("    ms-windows-store://pdp/?PFN={}", pfn);
