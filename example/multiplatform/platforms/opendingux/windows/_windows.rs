@@ -6,5 +6,6 @@
 #[cfg(windows)] mod bstr;
 #[cfg(windows)] use var::Variant;
 #[cfg(windows)] mod var;
+#[cfg(windows)] pub(crate) mod wsl;
 
 pub mod features;
