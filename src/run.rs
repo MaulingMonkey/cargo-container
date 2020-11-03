@@ -244,22 +244,25 @@ fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, command: &str, ok_
             sudos.insert(0, comment("requested by cargo-container for apt-get commands"));
         }
 
+        let rootmin = if cfg!(windows) { "admin" } else { "root" };
+        info!("tools wish to run the following commands as {}", rootmin);
+        eprintln!();
+        for line in sudos.iter() {
+            if is_comment(line) {
+                //eprintln!("    \u{001B}[36;1m{}\u{001B}[0m", line); // green
+                eprintln!("    \u{001B}[90m{}\u{001B}[0m", line); // grey
+            } else {
+                eprintln!("    {}", line);
+            }
+        }
+
         let allow_sudo = args.allow_sudo.unwrap_or_else(|| {
             // return false if command != "setup" with warning?
             if std::env::var_os("CI").is_some() {
+                eprint!("CI detected, will automatically run");
                 return true;
             }
 
-            info!("tools wish to run the following commands as {}", if cfg!(windows) { "admin" } else { "root" });
-            eprintln!();
-            for line in sudos.iter() {
-                if is_comment(line) {
-                    //eprintln!("    \u{001B}[36;1m{}\u{001B}[0m", line); // green
-                    eprintln!("    \u{001B}[90m{}\u{001B}[0m", line); // grey
-                } else {
-                    eprintln!("    {}", line);
-                }
-            }
             eprint!("would you like to run these commands? (N/y) ");
 
             let mut answer = String::new();
@@ -282,7 +285,7 @@ fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, command: &str, ok_
         });
 
         if !allow_sudo {
-            status!("Skipping", "admin tasks");
+            warning!("skipping {} tasks", rootmin);
         } else {
             std::fs::create_dir_all(".container/scripts").unwrap_or_else(|err| fatal!("unable to create directory .container/scripts: {}", err));
             if cfg!(windows) {
@@ -348,12 +351,12 @@ fn gen_then_fwd(meta: &ContainerToml, args: std::env::ArgsOs, command: &str, ok_
                         fatal!("`cmd /C \"call \"{}\"\"` failed: ShellExecuteExW failed with GetLastError() == 0x{:08x}", script_path.display(), gle);
                     }
 
-                    status!("Running", "admin tasks");
+                    status!("Running", "{} tasks", rootmin);
                     // Sadly, we don't have any stdout.  We could setup some kind of pipe maybe...?
                     let wait = unsafe { WaitForSingleObject(sei.hProcess, INFINITE) };
                     assert_eq!(wait, WAIT_OBJECT_0);
                     unsafe { CloseHandle(sei.hProcess) };
-                    status!("Finished", "admin tasks");
+                    status!("Finished", "{} tasks", rootmin);
                 }
 
                 let _ = params;
