@@ -23,13 +23,19 @@ fn main() {
 
             match arg.into_string() {
                 Err(s) => { cmd.arg(s); }, // not valid UTF8, pass through untranslated
-                Ok(s) => {
-                    if let Some(script) = s.strip_prefix("-Wl,--version-script=") {
-                        cmd.arg(format!("-Wl,--version-script={}", wslify_path(Path::new(script)).display()));
+                Ok(s) if s.starts_with("-") => { // --flag?
+                    if let Some(eq) = s.find('=') {
+                        let maybe_path = Path::new(&s[eq+1..]);
+                        if is_abs_win_path(maybe_path) { // --flag=path!
+                            cmd.arg(format!("{}{}", &s[..eq+1], wslify_path(maybe_path).display()));
+                        } else { // --flag=something_else
+                            cmd.arg(s);
+                        }
                     } else {
                         cmd.arg(s);
                     }
                 },
+                Ok(s) => { cmd.arg(s); },
             }
         }
 
