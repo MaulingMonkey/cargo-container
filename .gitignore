@@ -6,3 +6,5 @@ Cargo.lock
 /example/multiplatform/.container
 /example/multiplatform/bin
 /example/multiplatform/Cargo.toml
+/example/multiplatform/Xargo.toml
+/example/multiplatform/*.json

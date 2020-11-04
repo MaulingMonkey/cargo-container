@@ -9,16 +9,17 @@ use mmrbi::*;
 use mmrbi::fs::write_if_modified_with as wimw;
 
 use std::io::Write;
-use std::path::PathBuf;
 
 
+
+const XARGO_VERSION : &'static str = "0.3.22";
 
 const DISTRO_ID : &'static str = "cargo-container-platforms-opendingux-1";
 const PFNS : &'static [&'static str] = &[
-    "CanonicalGroupLimited.UbuntuonWindows_79rhkp1fndgsc",      // Ubuntu (16.04)
     "CanonicalGroupLimited.Ubuntu16.04onWindows_79rhkp1fndgsc", // Ubuntu 16.04 via https://aka.ms/wsl-ubuntu-1604
     "CanonicalGroupLimited.Ubuntu18.04onWindows_79rhkp1fndgsc", // Ubuntu 18.04 via https://aka.ms/wsl-ubuntu-1804
     "CanonicalGroupLimited.Ubuntu20.04onWindows_79rhkp1fndgsc", // Ubuntu 20.04 via ???
+    "CanonicalGroupLimited.UbuntuonWindows_79rhkp1fndgsc",      // Ubuntu (20.04)
 ];
 
 const GCW0_TOOLCHAIN_ENTRIES : usize = 30591 + 2160; // files + dirs for tar progress
@@ -51,29 +52,66 @@ fn distros() -> impl Iterator<Item = &'static str> {
     ][..]}.iter().copied()
 }
 
+fn supported(warn: bool) -> bool {
+    let mut supported = true;
 
-
-fn main() {
-    #[cfg(windows)] {
-        // shenannigans to work around WslLaunch's weird behavior
-        let mut args = std::env::args_os();
-        let _exe = args.next();
-        if args.next().map_or(false, |arg| arg == "wsl-register-distro-hack") {
-            let wsl = wslapi::Library::new().unwrap();
-            let distro = args.next().expect("distro");
-            let file   = PathBuf::from(args.next().expect("file"));
-            wsl.register_distribution(distro, file).or_die();
-            std::process::exit(0);
-        }
+    // rustc version
+    let rustc = rustc::version().or_die();
+    let nightly = rustc.version.pre.iter().map(|s| s.to_string()).collect::<Vec<_>>() == ["nightly"];
+    if !nightly {
+        if warn { warning!("requires nightly rustc, on rustc {}", rustc.version); }
+        supported = false;
     }
-    platform_common::exec(Tool, "opendingux")
+
+    if cfg!(windows) {
+        match windows::version() {
+            None => {
+                warning!("unable to determine windows version, may fail");
+            },
+            Some(ver) => {
+                // https://docs.microsoft.com/en-us/windows/wsl/release-notes
+                //  Build 18362:  Introduces WSL 2 (required - WSL1 doesn't like gcw0's 32-bit linux binaries)
+                //  Build 18305:  Introduces `wsl --import` (could workaround with WslLaunch, but it's super painful)
+                //  Build 17763:  Appveyor's "Visual Studio 2019" image as of 11/2/2020
+                //  Build 17763:  Github Action's "windows-2019" image as of 11/2/2020
+                let req = "windows 10 build 18362";
+                if ver < (10, 0, 0, 0) {
+                    if !warn {
+                        // squelched
+                    } else if ver.1 == 0 {
+                        warning!("requires {}, on windows {}", req, ver.0);
+                    } else {
+                        warning!("requires {}, on windows {}.{}", req, ver.0, ver.1);
+                    }
+                    supported = false;
+                } else if ver < (10, 0, 18362, 0) {
+                    if warn { warning!("requires {}, on windows 10 build {}", req, ver.2); }
+                    supported = false;
+                }
+            },
+        }
+    } else if cfg!(target_os = "linux") {
+        if warn { warning!("linux host not yet implemented"); }
+        supported = false;
+    } else {
+        if warn { warning!("host platform not supported"); }
+        supported = false;
+    }
+
+    supported
 }
+
+
+
+fn main() { platform_common::exec(Tool, "opendingux") }
 
 struct Tool;
 impl platform_common::Tool for Tool {
     fn setup(&self, _state: &State) {
-        windows::features::require("Microsoft-Windows-Subsystem-Linux");    // WSL 1 (required)
-        //windows::features::require("VirtualMachinePlatform");             // WSL 2 (optional)
+        if !supported(true) { return }
+
+        windows::features::require("Microsoft-Windows-Subsystem-Linux");    // WSL 1
+        windows::features::require("VirtualMachinePlatform");               // WSL 2 - required to run gcw0's 32-bit elf binaries
 
         if cfg!(target_os = "windows") {
             #[cfg(windows)] {
@@ -85,17 +123,33 @@ impl platform_common::Tool for Tool {
                 windows::wsl::ensure_root_stuff(&wsl, distro);
                 windows::wsl::ensure_gcw0_installed(&wsl, distro);
             }
+            install_xargo();
         } else if cfg!(target_os = "linux") {
-            // ...
+            install_xargo();
+            // TODO: toolchain junk
         } else {
+            // OS X?
             // ...?
         }
     }
 
     fn generate(&self, state: &State) {
+        if !supported(false) { return }
+
         for package in state.packages.iter() {
             let out_dir = package.generated_path();
             std::fs::create_dir_all(&out_dir).unwrap_or_else(|err| fatal!("unable to create `{}`: {}", out_dir.display(), err));
+
+            // XXX: Allow merging Xargo.toml files from multiple sources
+            wimw("Xargo.toml", |o|{
+                writeln!(o, "# AUTOGENERATED BY {}", env!("CARGO_PKG_NAME"))?;
+                writeln!(o, "[target.mipsel-gcw0-linux-uclibc.dependencies.std]")?;
+                writeln!(o, "features = []")?;
+                Ok(())
+            }).or_die();
+
+            // See https://github.com/MaulingMonkey/rust-opendingux-test/blob/master/mipsel-gcw0-linux-uclibc.json for some interesting notes
+            wimw("mipsel-gcw0-linux-uclibc.json", |o| write!(o, "{}", include_str!("mipsel-gcw0-linux-uclibc.json"))).or_die();
 
             wimw(out_dir.join("main.rs"), |o|{
                 writeln!(o, "// AUTOGENERATED BY {}", env!("CARGO_PKG_NAME"))?;
@@ -126,11 +180,29 @@ impl platform_common::Tool for Tool {
         }
     }
 
-    fn build(&self, _state: &State) {
-        return;
-    }
+    fn build(&self, state: &State) {
+        if !supported(true) { return }
 
-    fn test(&self, _state: &State) {
-        return;
+        for config in state.configs.iter() {
+            let mut cmd = Command::new("xargo");
+            cmd.args(&["build", "--target=mipsel-gcw0-linux-uclibc"]);
+            match config.name() {
+                "debug"     => {},
+                "release"   => { cmd.arg("--release"); },
+                other       => fatal!("unexpected config: {:?}", other),
+            }
+            for package in state.packages.iter() { cmd.arg("-p"); cmd.arg(&package.generated_name()); }
+            cmd.status0().or_die();
+        }
     }
+}
+
+fn install_xargo() {
+    cargo_local_install::run_from_strs(vec![
+        "--no-path-warning",
+        "xargo",
+        "--locked",
+        "--version",
+        &format!("^{}", XARGO_VERSION),
+    ].into_iter()).or_die();
 }

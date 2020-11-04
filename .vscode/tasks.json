@@ -3,10 +3,16 @@
 
     "problemMatcher":   "$rustc",
     "type":             "shell",
-    "options":          { "env": { "PATH": "${workspaceFolder}/target/release:${env:PATH}" } },
     "windows":          { "options": { "env": { "PATH": "${workspaceFolder}\\target\\release;${env:PATH}" } } },
     "presentation":     { "clear": true, "reveal": "always", "panel": "shared" },
 
+    "options": {
+        "env": {
+            "PATH":             "${workspaceFolder}/target/release:${env:PATH}",
+            "RUSTUP_TOOLCHAIN": "nightly",
+        }
+    },
+    
     "tasks": [
         // entry points
         {
@@ -73,9 +79,23 @@
         // test
         {
             "label":            "test",
-            "command":          "cargo test --manifest-path Cargo.toml && cargo test --manifest-path example/multiplatform/platforms/Cargo.toml",
-            "presentation":     { "clear": true, "group": "clean", "reveal": "always" },
-            "problemMatcher":   { "base": "$rustc", "owner": "test", "source": "test" },
+            "dependsOrder":     "parallel",
+            "dependsOn": [
+                "test cargo-container",
+                "test platforms",
+            ]
+        },
+        {
+            "label":            "test cargo-container",
+            "command":          "cargo test --manifest-path Cargo.toml",
+            "presentation":     { "clear": true, "group": "test", "reveal": "always" },
+            "problemMatcher":   { "base": "$rustc", "owner": "test cargo-container", "source": "test cargo-container" },
+        },
+        {
+            "label":            "test platforms",
+            "command":          "cargo test --manifest-path example/multiplatform/platforms/Cargo.toml",
+            "presentation":     { "clear": true, "group": "test", "reveal": "always" },
+            "problemMatcher":   { "base": "$rustc", "owner": "test platforms", "source": "test platforms", "fileLocation": ["relative", "${workspaceFolder}/example/multiplatform/platforms"] },
         },
 
 

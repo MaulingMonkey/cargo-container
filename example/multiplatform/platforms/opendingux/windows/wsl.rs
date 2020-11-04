@@ -57,7 +57,7 @@ pub fn ensure_distro_installed(wsl: &wslapi::Library) -> &'static str {
 }
 
 #[allow(deprecated)] // std::env::home_dir
-pub fn install_distro_from_pfn(wsl: &wslapi::Library, pm: &windows::management::deployment::PackageManager, pfn: &str) -> bool {
+pub fn install_distro_from_pfn(_wsl: &wslapi::Library, pm: &windows::management::deployment::PackageManager, pfn: &str) -> bool {
     let user_sid = ""; // empty string = current user
     let packages = pm.find_packages_by_user_security_id_package_family_name(user_sid, pfn).unwrap_or_else(|err| fatal!("unable to find packages to locate WSL images: {:?}", err));
     for package in packages {
@@ -70,13 +70,16 @@ pub fn install_distro_from_pfn(wsl: &wslapi::Library, pm: &windows::management::
             let home = std::env::home_dir().unwrap_or_else(|| fatal!("unable to determine home directory"));
             let distro_dir = home.join(format!(r".cargo\container\{}", DISTRO_ID));
 
-            if cfg!(nope) {
+            if true {
                 // --import requires build 18305 https://docs.microsoft.com/en-us/windows/wsl/release-notes#build-18305
                 // travis and appveyor are only on build 17763
                 Command::new("wsl").arg("--import").arg(DISTRO_ID).arg(&distro_dir).arg(&install_tar_gz).status0().unwrap_or_else(|err| fatal!(
                     "unable to import distro {} from {} into {}: {}", DISTRO_ID, install_tar_gz.display(), distro_dir.display(), err
                 ));
-                let _ = wsl.register_distribution(DISTRO_ID, ""); // wslapi caches distro information which wsl --import bypassed, try and refresh
+                status!("Converting", "{} to WSL 2", DISTRO_ID);
+                Command::new("wsl").arg("--set-version").arg(DISTRO_ID).arg("2").status0().unwrap_or_else(|err| fatal!(
+                    "unable to convert distro {} to WSL 2: {}", DISTRO_ID, err
+                ));
             } else {
                 // WslLaunch is a troll API.  Specifically, it uses the directory of the executable to install the distribution into.
                 // Not the current directory, not the directory of argv[0] if you symlinked that, the directory of the *executable*.
@@ -94,9 +97,8 @@ pub fn install_distro_from_pfn(wsl: &wslapi::Library, pm: &windows::management::
                     .status0().or_die();
                 std::fs::remove_file(&distro_exe).unwrap_or_else(|err| fatal!("unable to remove distro exe `{}`: {}", distro_exe.display(), err));
             }
-            if !wsl.is_distribution_registered(DISTRO_ID) {
-                warning!("wslapi doesn't recognize {} as registered despite supposedly importing successfully", DISTRO_ID);
-            }
+            // wslapi seems to cache information poorly?  This check seems 100% unreliable if installing through `wsl` command line *or* through `wslapi.dll`
+            // if !_wsl.is_distribution_registered(DISTRO_ID) { ... }
             return true;
         } else {
             warning!("missing {} (expected to exist thanks to {} but it doesn't)", install_tar_gz.display(), pfn);
@@ -154,11 +156,10 @@ pub fn ensure_root_stuff(wsl: &wslapi::Library, distro: &str) {
     }
 
     // Update/install apt packages
-    if cfg!(nope) {
-        status!("Updating", "apt sources and packages");
-        root(distro).args(&["apt-get", "-y", "update"]).status0().or_die();
-        //root(distro).args(&["apt-get", "-y", "install", "..."]).status0().or_die();
-    }
+    status!("Updating", "apt sources and packages");
+    root(distro).args(&["dpkg", "--add-architecture", "i386"]).status0().or_die(); // gcw0-toolchain is all 32-bit executables so I need this
+    root(distro).args(&["apt-get", "-y", "update"]).status0().or_die();
+    root(distro).args(&["apt-get", "-y", "install", "libc6:i386", "libstdc++6:i386"]).status0().or_die(); // necessary for mipsel-gcw0-linux-gcc
 }
 
 pub fn ensure_gcw0_installed(_wsl: &wslapi::Library, distro: &str) {

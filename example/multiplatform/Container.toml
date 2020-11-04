@@ -14,3 +14,9 @@ members = [
 [[build]]
 crates  = ["alpha", "beta", "delta"]
 tools   = ["platform-console", "platform-opendingux", "platform-stdweb", "platform-web-sys", "platform-windows"]
+
+[profile]
+dev     .panic = "abort"
+release .panic = "abort"
+test    .panic = "abort"
+bench   .panic = "abort"
