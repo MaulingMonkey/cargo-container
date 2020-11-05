@@ -36,6 +36,7 @@ pub fn run() {
         "build" | "b"           => gen_then_fwd(&meta, args, "build",   false, "Building"),
         "check" | "c"           => check(&meta, args),
         "clean"                 => clean(&meta, args),
+        "deploy"                => gen_then_fwd(&meta, args, "deploy",  false, "Deploying"),
         "doc"                   => gen_then_fwd(&meta, args, "doc",     false, "Documenting"),
         "fetch"                 => fetch(&meta, args),
         "fuzz"                  => gen_then_fwd(&meta, args, "fuzz",    false, "Fuzzing"),

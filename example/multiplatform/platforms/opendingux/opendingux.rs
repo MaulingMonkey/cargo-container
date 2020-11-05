@@ -9,6 +9,7 @@ use mmrbi::*;
 use mmrbi::fs::write_if_modified_with as wimw;
 
 use std::io::Write;
+use std::path::PathBuf;
 
 
 
@@ -193,6 +194,76 @@ impl platform_common::Tool for Tool {
             }
             for package in state.packages.iter() { cmd.arg("-p"); cmd.arg(&package.generated_name()); }
             cmd.status0().or_die();
+        }
+    }
+
+    fn package(&self, state: &State) {
+        if !supported(true) { return }
+
+        for package in state.packages.iter() {
+            let pkg_dir = PathBuf::from(format!("target/opendingux/packages/{}", package.original_name()));
+            let pkg_opk = PathBuf::from(format!("target/opendingux/packages/{}.opk", package.original_name()));
+            let _ = std::fs::remove_dir_all(&pkg_dir);
+            let _ = std::fs::remove_file(&pkg_opk);
+            std::fs::create_dir_all(&pkg_dir).unwrap_or_else(|err| fatal!("unable to create {}: {}", pkg_dir.display(), err));
+            for config in state.configs.iter() {
+                let src_bin = PathBuf::from(format!("target/mipsel-gcw0-linux-uclibc/{}/{}", config.name(), package.original_name()));
+                let dst_bin = PathBuf::from(format!("target/opendingux/packages/{}/app.{}", package.original_name(), config.name()));
+                std::fs::copy(&src_bin, &dst_bin).unwrap_or_else(|err| fatal!("unable to copy {} to {}: {}", src_bin.display(), dst_bin.display(), err));
+                wimw(format!("target/opendingux/packages/{}/{}.all.desktop", package.original_name(), config.name()), |o|{
+                    let name = package.original_name();
+                    // cargo-container doesn't currently pass this information to package commands
+                    //let desc = package.description();
+                    //let desc = if desc.is_empty() { name } else { desc.as_str() };
+                    let desc = name;
+                    writeln!(o, "[Desktop Entry]")?;
+                    writeln!(o, "Type=Application")?;
+                    writeln!(o, "Version=1.0")?;
+                    if state.configs.len() <= 1 {
+                        writeln!(o, "Name={name}", name=name)?;
+                    } else {
+                        writeln!(o, "Name={name} ({config})", name=name, config=config.name())?;
+                    }
+                    writeln!(o, "Comment={desc}", desc=desc)?;
+                    writeln!(o, "Categories=rust;")?;
+                    writeln!(o, "Icon=icon")?;
+                    writeln!(o, "Terminal=true")?; // XXX
+                    writeln!(o, "Exec=app.{config}", config=config.name())?;
+                    Ok(())
+                }).or_die();
+            }
+            wimw(format!("target/opendingux/packages/{}/icon.png", package.original_name()), |o| o.write_all(include_bytes!("placeholder-icon.png"))).or_die();
+            // TODO: filter to heck and back?
+            Command::new("wsl")
+                .arg("-u").arg("opendingux")
+                .arg("-d").arg("cargo-container-platforms-opendingux-1")
+                .arg("--").arg("mksquashfs")
+                .arg(&pkg_dir)
+                .arg(&pkg_opk)
+                .arg("-comp").arg("gzip")
+                .arg("-noappend")
+                .status0().or_die();
+        }
+    }
+
+    fn deploy(&self, state: &State) {
+        if !supported(true) { return }
+
+        let dst_ip  = "10.1.1.2";
+        let dst_user= "root";
+        for package in state.packages.iter() {
+            let src_opk = format!("target/opendingux/packages/{}.opk", package.original_name());
+            let dst_opk = format!("/media/sdcard/apps/{}.opk", package.original_name());
+            Command::new("scp")
+                .arg("-o").arg("StrictHostKeyChecking=accept-new") // XXX
+                // Normally this is a bit of a bad idea.  However:
+                //  1.  We provide no secrets such as a password, and *only* write .opk s to this target.
+                //  2.  Despite the IP addresses, this is supposed to be a USB-local "Remote NDIS" device.
+                //      https://docs.microsoft.com/en-us/windows-hardware/drivers/network/overview-of-remote-ndis--rndis-
+                //  3.  You're not actually checking the new fingerprint anyways.
+                .arg(&src_opk)
+                .arg(format!("{user}@{ip}:{path}", user=dst_user, ip=dst_ip, path=dst_opk))
+                .status0().or_die();
         }
     }
 }

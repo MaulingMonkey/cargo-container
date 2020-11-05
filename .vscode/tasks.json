@@ -32,6 +32,8 @@
                 "setup example multiplatform",
                 "build example multiplatform",
                 "test example multiplatform",
+                "package example multiplatform",
+                "deploy example multiplatform",
             ],
         },
 
@@ -150,6 +152,28 @@
             "options":          { "cwd": "${workspaceFolder}/example/multiplatform" },
             "presentation":     { "clear": true, "group": "test example multiplatform", "reveal": "always" },
             "problemMatcher":   { "base": "$rustc", "owner": "test example multiplatform", "source": "test example multiplatform", "fileLocation": ["relative", "${workspaceFolder}/example/multiplatform"] },
+        },
+
+
+
+        // package example multiplatform
+        {
+            "label":            "package example multiplatform",
+            "command":          "cargo container package --config debug --config release --skip-install",
+            "options":          { "cwd": "${workspaceFolder}/example/multiplatform" },
+            "presentation":     { "clear": true, "group": "package example multiplatform", "reveal": "always" },
+            "problemMatcher":   { "base": "$rustc", "owner": "package example multiplatform", "source": "package example multiplatform", "fileLocation": ["relative", "${workspaceFolder}/example/multiplatform"] },
+        },
+
+
+
+        // deploy example multiplatform
+        {
+            "label":            "deploy example multiplatform",
+            "command":          "cargo container deploy --config debug --config release --skip-install",
+            "options":          { "cwd": "${workspaceFolder}/example/multiplatform" },
+            "presentation":     { "clear": true, "group": "deploy example multiplatform", "reveal": "always" },
+            "problemMatcher":   { "base": "$rustc", "owner": "deploy example multiplatform", "source": "deploy example multiplatform", "fileLocation": ["relative", "${workspaceFolder}/example/multiplatform"] },
         },
 
 

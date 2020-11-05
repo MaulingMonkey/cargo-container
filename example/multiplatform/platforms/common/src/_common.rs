@@ -17,6 +17,7 @@ pub fn exec(tool: impl Tool, suffix: &str) {
         "bench"     => tool.bench   (state),
         "build"     => tool.build   (state),
         "clean"     => tool.clean   (state),
+        "deploy"    => tool.deploy  (state),
         "doc"       => tool.doc     (state),
         "fetch"     => tool.fetch   (state),
         "generate"  => tool.generate(state),
@@ -35,6 +36,7 @@ pub trait Tool {
     fn bench    (&self, _state: &State) { exit::command_not_implemented() }
     fn build    (&self, _state: &State) { exit::command_not_implemented() }
     fn clean    (&self, _state: &State) { exit::command_not_implemented() }
+    fn deploy   (&self, _state: &State) { exit::command_not_implemented() }
     fn doc      (&self, _state: &State) { exit::command_not_implemented() }
     fn fetch    (&self, _state: &State) { exit::command_not_implemented() }
     fn generate (&self, _state: &State) { exit::command_not_implemented() }
