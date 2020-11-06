@@ -25,9 +25,8 @@ pub fn ensure_distro_installed(wsl: &wslapi::Library) -> &'static str {
     //let hr = unsafe { RoInitialize(RO_INIT_MULTITHREADED) };
     //if !SUCCEEDED(hr) { fatal!("RoInitialize(RO_INIT_MULTITHREADED) failed with HRESULT 0x{:08x}", hr); }
 
-    let pm = windows::management::deployment::PackageManager::new().unwrap_or_else(|err| fatal!("unable to create PackageManager to locate WSL images: {:?}", err));
     for pfn in PFNS.iter().copied() {
-        if install_distro_from_pfn(wsl, &pm, pfn) { return DISTRO_ID; }
+        if install_distro_from_pfn(wsl, pfn) { return DISTRO_ID; }
     }
 
     let tmp_appx_path = std::env::temp_dir().join(format!("ccod-ubuntu.appx"));
@@ -43,8 +42,8 @@ pub fn ensure_distro_installed(wsl: &wslapi::Library) -> &'static str {
     //}
 
     status!("Installing", "{} ({})", UBUNTU_APPX.name, UBUNTU_APPX.url);
-    Command::new("powershell").args(&["Add-AppxPackage", "-Path"]).arg(&tmp_appx_path).status0().or_die();
-    if install_distro_from_pfn(wsl, &pm, UBUNTU_PFN) { return DISTRO_ID; }
+    appx::repository::add_appx_package(&tmp_appx_path).or_die();
+    if install_distro_from_pfn(wsl, UBUNTU_PFN) { return DISTRO_ID; }
 
     error!("unable to install {} from {}", DISTRO_ID, UBUNTU_PFN);
     eprintln!("Consider installing from one of the following sources:");
@@ -57,13 +56,10 @@ pub fn ensure_distro_installed(wsl: &wslapi::Library) -> &'static str {
 }
 
 #[allow(deprecated)] // std::env::home_dir
-pub fn install_distro_from_pfn(_wsl: &wslapi::Library, pm: &windows::management::deployment::PackageManager, pfn: &str) -> bool {
-    let user_sid = ""; // empty string = current user
-    let packages = pm.find_packages_by_user_security_id_package_family_name(user_sid, pfn).unwrap_or_else(|err| fatal!("unable to find packages to locate WSL images: {:?}", err));
-    for package in packages {
-        let loc = package.installed_location().unwrap_or_else(|err| fatal!("unable to get Package({:?})->InstalledLocation: {:?}", pfn, err));
-        let path = loc.path().unwrap_or_else(|err| fatal!("unable to get Package({:?})->InstalledLocation->Path: {:?}", pfn, err));
-        let path = PathBuf::from(OsString::from_wide(path.as_wide()));
+pub fn install_distro_from_pfn(_wsl: &wslapi::Library, pfn: &str) -> bool {
+    let pfn = appx::PackageFamilyName::new(pfn);
+    for package in appx::repository::packages_for_family(&pfn).unwrap() {
+        let path = package.install_location().unwrap_or_else(|err| fatal!("unable to get Package({:?})->InstalledLocation: {:?}", pfn, err));
         let install_tar_gz = path.join("install.tar.gz");
         if install_tar_gz.exists() {
             status!("Installing", "{} from {} (this may take a minute)", DISTRO_ID, install_tar_gz.display());
