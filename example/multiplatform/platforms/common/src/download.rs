@@ -21,13 +21,14 @@ impl Download {
         let download = if let Some(path) = self.url.strip_prefix("file:///") {
             std::fs::read(path).unwrap_or_else(|err| fatal!("unable to read {}: {}", path, err))
         } else {
-            reqwest::blocking::Client::builder()
-                .user_agent("github.com/MaulingMonkey/cargo-container/example/multiplatform/platforms/common")
-                .build().or_die()
-                .get(self.url)
-                .send().or_die()
-                .bytes().or_die()
-                .to_vec()
+            let ua = "github.com/MaulingMonkey/cargo-container/example/multiplatform/platforms/common";
+            let req = ureq::get(self.url).set("User-Agent", ua).call();
+            if !req.ok() {
+                fatal!("download failed with status {}: {}", req.status(), req.into_string().map_or_else(|_| String::from("???"), |s| s));
+            }
+            let mut v = Vec::new();
+            req.into_reader().read_to_end(&mut v).unwrap_or_else(|err| fatal!("error reading response: {}", err));
+            v
         };
 
         let mut hasher = sha2::Sha256::new();
